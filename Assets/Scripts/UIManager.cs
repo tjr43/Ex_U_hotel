@@ -1,8 +1,13 @@
-using System.Transactions;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using System.Collections.Generic; // List<PlayerRecord>를 위해 추가
+
+// [수정됨] 이 파일은 TransitionManager를 직접 호출합니다.
+// TransitionManager.cs가 같은 폴더에 있어야 합니다.
+// using StarterAssets; // 만약 StarterAssets 폴더로 옮겼다면 이 줄의 주석을 해제하세요.
+
 
 public class UIManager : MonoBehaviour
 {
@@ -24,7 +29,7 @@ public class UIManager : MonoBehaviour
     public Button changeFloorButton;
 
     [Header("Panel References")]
-    public GameObject quizPanel; // 퀴즈 패널 (메인 2D UI)
+    public GameObject quizPanel;
     public GameObject memoPanel;
     public GameObject rulesPanel;
 
@@ -45,6 +50,11 @@ public class UIManager : MonoBehaviour
     private void Start()
     {
         // 씬 로드 후 UI 초기화 (GameScene에 붙어있다고 가정)
+        // 퀴즈/메모/규칙 패널은 처음에 모두 숨깁니다.
+        if (quizPanel != null) quizPanel.SetActive(false);
+        if (memoPanel != null) memoPanel.SetActive(false);
+        if (rulesPanel != null) rulesPanel.SetActive(false);
+
         UpdateUI();
     }
 
@@ -55,74 +65,47 @@ public class UIManager : MonoBehaviour
 
         GameState state = GameManager.Instance.gameState;
 
-        // 1. 공통 정보 업데이트
-        playerNameText.text = state.currentPlayerId;
-        attemptsText.text = state.attemptsLeft.ToString();
+        // 1. 공통 정보 업데이트 (HUD)
+        if (playerNameText != null) playerNameText.text = state.currentPlayerId;
+        if (attemptsText != null) attemptsText.text = $"남은 기회: {state.attemptsLeft}";
 
-        // 2. 퀴즈/이동 패널 상태 결정
-        int currentFloor = state.currentFloor;
-
-        // 층 데이터가 유효한지 확인
-        if (currentFloor < 1 || currentFloor > state.gameFloors.Count) return;
-
-        Floor currentFloorData = state.gameFloors[currentFloor - 1];
-        bool isCleared = state.IsFloorCleared(state.currentPlayerId, currentFloor);
-        bool isLobbyOrRest = currentFloor == 1 || currentFloor == 7;
-
-        // 3. 퀴즈/이동 UI 텍스트 업데이트
-        if (isLobbyOrRest)
+        // 2. 퀴즈 패널이 활성화되어 있다면, 퀴즈 정보 업데이트
+        if (quizPanel != null && quizPanel.activeSelf)
         {
-            quizDescriptionText.text = currentFloor == 1 ? "1층 로비" : "7층 휴식 공간";
-            quizRiddleText.text = currentFloor == 1 ? "다음 층으로 이동하세요." : "잠시 쉬어가세요. (여기서는 정답을 제출할 수 없습니다.)";
-        }
-        else if (isCleared)
-        {
-            quizDescriptionText.text = $"{currentFloor}층 (클리어)";
-            quizRiddleText.text = "이미 클리어한 층입니다. 다른 층으로 이동하세요.";
-        }
-        else
-        {
-            // 퀴즈 층 (미클리어)
-            Trap trap = currentFloorData.traps[0];
-            quizDescriptionText.text = $"--- {currentFloor}층입니다. --- [방송] {trap.description}";
-            quizRiddleText.text = $"[문제] {trap.riddle}";
-        }
+            int currentFloor = state.currentFloor;
+            if (currentFloor < 1 || currentFloor > state.gameFloors.Count) return;
 
-        // 4. 버튼 활성화/비활성화 (로비/휴식/클리어 상태에서는 퀴즈 제출 비활성화)
-        bool canSubmit = !isCleared && !isLobbyOrRest;
-        answerInput.gameObject.SetActive(canSubmit);
-        submitButton.gameObject.SetActive(canSubmit);
+            Floor currentFloorData = state.gameFloors[currentFloor - 1];
+            bool isLobbyOrRest = currentFloor == 1 || currentFloor == 7;
 
-        // 1층, 7층, 클리어 층에서는 층 이동 가능
-        bool canChangeFloor = isCleared || isLobbyOrRest;
-        floorInput.gameObject.SetActive(canChangeFloor);
-        changeFloorButton.gameObject.SetActive(canChangeFloor);
+            if (isLobbyOrRest)
+            {
+                if (quizDescriptionText != null) quizDescriptionText.text = currentFloor == 1 ? "1층 로비" : "7층 휴식 공간";
+                if (quizRiddleText != null) quizRiddleText.text = currentFloor == 1 ? "다음 층으로 이동하세요." : "잠시 쉬어가세요.";
+            }
+            else
+            {
+                // 퀴즈 층 (미클리어 상태여야 퀴즈 패널이 보임)
+                Trap trap = currentFloorData.traps[0];
+                if (quizDescriptionText != null) quizDescriptionText.text = $"--- {currentFloor}층 --- [방송] {trap.description}";
+                if (quizRiddleText != null) quizRiddleText.text = $"[문제] {trap.riddle}";
+            }
+        }
     }
 
     public void ShowMessage(string msg)
     {
-        messageText.text = msg;
+        if (messageText != null)
+        {
+            messageText.text = msg;
+            // (선택 사항) 몇 초 뒤에 메시지가 사라지게 하려면 Coroutine을 사용하세요.
+        }
     }
 
     // --- 버튼 이벤트 핸들러 (유니티 버튼 OnClick에 연결) ---
-    public void OnStartGameButton(TMP_InputField inputField)
-    {
-        string playerName = inputField.text.Trim();
-        if (string.IsNullOrEmpty(playerName))
-        {
-            // 이 메시지는 Start 씬의 UI에 표시되어야 합니다.
-            Debug.Log("이름을 입력해주세요.");
-            return;
-        }
-
-        // 로드 및 초기화는 이미 GameManager의 Awake에서 호출되었다고 가정합니다.
-        // Start 씬 전용 GameManager를 만들어 LoadGameAndInitialize()를 호출하는 것이 좋습니다.
-
-        GameManager.Instance.StartNewPlayer(playerName);
-    }
-
     public void OnSubmitAnswerButton()
     {
+        if (answerInput == null) return;
         string answer = answerInput.text;
         GameManager.Instance.SubmitAnswer(answer);
         answerInput.text = ""; // 입력 필드 초기화
@@ -130,6 +113,8 @@ public class UIManager : MonoBehaviour
 
     public void OnChangeFloorButton()
     {
+        if (floorInput == null) return;
+
         if (int.TryParse(floorInput.text, out int newFloor))
         {
             GameManager.Instance.ChangeFloor(newFloor);
@@ -141,20 +126,49 @@ public class UIManager : MonoBehaviour
         floorInput.text = ""; // 입력 필드 초기화
     }
 
-    public void OnExitGameButton()
+    // --- [추가됨] 1인칭 상호작용을 위한 함수 ---
+    public void ShowQuizPanel()
     {
-        GameManager.Instance.SaveGame();
-        SceneManager.LoadScene("GoodbyeScene");
+        if (quizPanel != null)
+        {
+            // 퀴즈 패널을 띄우기 전에 현재 층 정보로 UI를 갱신합니다.
+            UpdateUI();
+            quizPanel.SetActive(true);
+
+            // TransitionManager를 호출하여 1인칭 모드를 끄고 UI 모드를 켭니다.
+            if (TransitionManager.Instance != null)
+            {
+                TransitionManager.Instance.SetUIMode(true);
+            }
+        }
     }
 
-    // --- 모달/패널 제어 ---
+    // [추가됨] GameManager가 퀴즈를 푼 후 호출할 함수
+    public void HideQuizPanel()
+    {
+        if (quizPanel != null)
+        {
+            quizPanel.SetActive(false);
+
+            // TransitionManager를 호출하여 UI 모드를 끄고 1인칭 모드를 켭니다.
+            if (TransitionManager.Instance != null)
+            {
+                TransitionManager.Instance.SetUIMode(false);
+            }
+        }
+    }
+
+    // --- [추가됨] 메모/규칙 패널 제어 함수 ---
     public void OnShowMemoButton()
     {
         if (memoPanel != null)
         {
             memoPanel.SetActive(true);
             UpdateMemoList();
-            TransitionManager.Instance.SetUIMode(true);
+            if (TransitionManager.Instance != null)
+            {
+                TransitionManager.Instance.SetUIMode(true);
+            }
         }
     }
 
@@ -163,42 +177,55 @@ public class UIManager : MonoBehaviour
         if (rulesPanel != null)
         {
             rulesPanel.SetActive(true);
-            TransitionManager.Instance.SetUIMode(true);
+            if (TransitionManager.Instance != null)
+            {
+                TransitionManager.Instance.SetUIMode(true);
+            }
         }
     }
 
-    // 이 함수는 모달 닫기 버튼에 연결됩니다.
+    // (버튼 OnClick에 연결)
     public void OnHideModalButton(GameObject panel)
     {
         if (panel != null)
         {
             panel.SetActive(false);
-            TransitionManager.Instance.SetUIMode(false);
+            // 퀴즈 패널도 닫혀있는지 확인 후 1인칭 모드로 복귀
+            if ((quizPanel == null || !quizPanel.activeSelf) &&
+                (memoPanel == null || !memoPanel.activeSelf) &&
+                (rulesPanel == null || !rulesPanel.activeSelf))
+            {
+                if (TransitionManager.Instance != null)
+                {
+                    TransitionManager.Instance.SetUIMode(false);
+                }
+            }
         }
     }
 
-    // --- 메모 리스트 렌더링 ---
+    // --- [추가됨] 메모 리스트 렌더링 ---
     private void UpdateMemoList()
     {
+        if (memoListContent == null || memoItemPrefab == null) return;
+
         // 기존 메모 아이템 제거
         foreach (Transform child in memoListContent)
         {
             Destroy(child.gameObject);
         }
 
-        var history = GameManager.Instance.gameState.playerHistory;
+        List<PlayerRecord> history = GameManager.Instance.gameState.playerHistory;
         if (history == null || history.Count == 0) return;
 
         // 최신순으로 표시 (역순)
         for (int i = history.Count - 1; i >= 0; i--)
         {
             PlayerRecord record = history[i];
+            if (record == null || string.IsNullOrEmpty(record.memo)) continue;
 
-            // 메모 항목 프리팹이 미리 준비되어 있어야 합니다.
             GameObject item = Instantiate(memoItemPrefab, memoListContent);
 
-            // 프리팹 내의 텍스트 컴포넌트들을 찾아서 설정합니다.
-            // 프리팹 구조에 따라 GetComponentsInChildren 대신 직접 참조하는 변수를 사용하는 것이 더 좋습니다.
+            // 프리팹 내의 텍스트 컴포넌트들을 찾아서 설정합니다. (구조에 따라 수정 필요)
             TMP_Text[] texts = item.GetComponentsInChildren<TMP_Text>();
             if (texts.Length >= 2)
             {
@@ -208,3 +235,4 @@ public class UIManager : MonoBehaviour
         }
     }
 }
+
