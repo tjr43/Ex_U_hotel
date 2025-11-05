@@ -1,244 +1,291 @@
-using TMPro;
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI; // <-- [¼öÁ¤µÊ] ÀÌ ÁÙÀÌ Ãß°¡µÇ¾î 'Button' ¿À·ù¸¦ ÇØ°áÇÕ´Ï´Ù.
-
-// [ÃÖÁ¾ ¼öÁ¤] WinScene/GameOverSceneÀÇ ¸Ş¸ğ ÀÔ·ÂÀ» Ã³¸®ÇÏ´Â ±â´ÉÀÌ Ãß°¡µÇ¾ú½À´Ï´Ù.
+using TMPro; // TextMeshProë¥¼ ì‚¬ìš©í•˜ê¸° ìœ„í•´ í•„ìš”
+using UnityEngine.UI; // Buttonì„ ì‚¬ìš©í•˜ê¸° ìœ„í•´ í•„ìš”
 
 public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
 
-    [Header("UI Text Components")]
+    [Header("UI Text Components (HUD)")]
     public TMP_Text playerNameText;
     public TMP_Text attemptsText;
+    public TMP_Text messageText; // ê°ì¢… ì•Œë¦¼ ë©”ì‹œì§€
+
+    [Header("UI Text Components (Quiz Panel)")]
     public TMP_Text quizRiddleText;
     public TMP_Text quizDescriptionText;
-    public TMP_Text messageText; // °ÔÀÓ ¸Ş½ÃÁö Ãâ·Â¿ë
 
     [Header("Input Fields")]
     public TMP_InputField floorInput;
     public TMP_InputField answerInput;
-    public TMP_InputField memoInputField; // [Ãß°¡µÊ] Win/GameOverSceneÀÇ ¸Ş¸ğ ÀÔ·ÂÃ¢
+    public TMP_InputField memoInputField; // Win/GameOver ì”¬ì—ì„œ ì‚¬ìš©
 
     [Header("Buttons")]
-    public Button submitButton; // <-- ÀÌÁ¦ ÀÌ ÁÙÀÇ ¿À·ù°¡ »ç¶óÁı´Ï´Ù.
+    public Button submitButton;
     public Button changeFloorButton;
 
     [Header("Panel References")]
-    public GameObject quizPanel; // ÄûÁî ÆĞ³Î (¸ŞÀÎ 2D UI)
+    public GameObject quizPanel;
     public GameObject memoPanel;
     public GameObject rulesPanel;
 
     [Header("Memo List Components")]
     public RectTransform memoListContent;
-    public GameObject memoItemPrefab; // ¸Ş¸ğ Ç×¸ñ ÇÁ¸®ÆÕ (ÀÌ¸§, ¸Ş¸ğ ÅØ½ºÆ® Æ÷ÇÔ)
+    public GameObject memoItemPrefab; // ë©”ëª¨ í•­ëª© í”„ë¦¬íŒ¹ (ì´ë¦„, ë©”ëª¨ í…ìŠ¤íŠ¸ í¬í•¨)
 
-    private void Awake() {
-        if (Instance != null && Instance != this) {
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
             Destroy(gameObject);
             return;
         }
         Instance = this;
 
-        // ¾ÀÀÌ ¹Ù²î¾îµµ UIManager°¡ ÆÄ±«µÇÁö ¾Êµµ·Ï ¼³Á¤ (GameManager¿Í µ¿ÀÏÇÏ°Ô)
-        // ´Ü, ¾À¸¶´Ù UI°¡ ´Ù¸£´Ù¸é ÀÌ ·ÎÁ÷Àº »©°í ¾À¸¶´Ù Canvas¸¦ µÎ´Â °ÍÀÌ ³ªÀ» ¼ö ÀÖ½À´Ï´Ù.
-        // ¿©±â¼­´Â ¾À¸¶´Ù Canvas°¡ ÀÖ´Ù°í °¡Á¤ÇÏ°í DontDestroyOnLoad¸¦ »ç¿ëÇÏÁö ¾Ê½À´Ï´Ù.
+        // ì”¬(Scene)ì´ ë°”ë€Œì–´ë„ UI ê´€ë¦¬ìê°€ íŒŒê´´ë˜ì§€ ì•Šë„ë¡ ì„¤ì •
+        // (GameManagerì™€ í•¨ê»˜)
+        // DontDestroyOnLoad(gameObject); // -> GameManagerê°€ ì´ë¯¸ DontDestroyOnLoadì´ë¯€ë¡œ, UIëŠ” ì”¬ë§ˆë‹¤ ìƒˆë¡œ ë¡œë“œë˜ëŠ” ê²ƒì´ ë‚˜ì„ ìˆ˜ ìˆìŠµë‹ˆë‹¤. ì”¬ ì „í™˜ ì‹œ ì˜¤ë¥˜ê°€ ë‚˜ë©´ ì´ ë¶€ë¶„ì„ ì£¼ì„ ì²˜ë¦¬í•©ë‹ˆë‹¤.
     }
 
-    private void Start() {
-        // ¾ÀÀÌ ·ÎµåµÉ ¶§¸¶´Ù UI¸¦ °»½ÅÇÏµµ·Ï ½Ãµµ
-        // (GameSceneÀÌ ¾Æ´Ò °æ¿ì playerNameText µîÀÌ nullÀÏ ¼ö ÀÖÀ¸¹Ç·Î null Ã¼Å© ÇÊ¼ö)
-        if (quizPanel == null) // GameSceneÀÌ ¾Æ´Ô (¿¹: StartScene, WinScene...)
+    private void Start()
+    {
+        // ì”¬(Scene)ì´ ë¡œë“œë  ë•Œ UIë¥¼ ì¦‰ì‹œ ê°±ì‹ í•©ë‹ˆë‹¤.
+        // ë‹¨, GameSceneì´ ì•„ë‹ ê²½ìš° (StartScene ë“±) GameManagerê°€ nullì¼ ìˆ˜ ìˆìŠµë‹ˆë‹¤.
+        if (GameManager.Instance != null && GameManager.Instance.gameState != null)
         {
-            // WinScene/GameOverSceneÀÇ ÄûÁî ÆĞ³ÎÀº ºñÈ°¼ºÈ­
-            // (¸¸¾à GameSceneÀÇ Canvas¸¦ °øÀ¯ÇÑ´Ù¸é)
-            if (quizPanel != null) quizPanel.SetActive(false);
-            if (memoPanel != null) memoPanel.SetActive(false);
-            if (rulesPanel != null) rulesPanel.SetActive(false);
-        } else // GameSceneÀÏ °æ¿ì UI ÃÊ±âÈ­
-          {
             UpdateUI();
-            quizPanel.SetActive(false);
-            memoPanel.SetActive(false);
-            rulesPanel.SetActive(false);
         }
+
+        // ëª¨ë“  íŒ¨ë„ì„ ìˆ¨ê¸°ê³  ì‹œì‘
+        if (quizPanel != null) quizPanel.SetActive(false);
+        if (memoPanel != null) memoPanel.SetActive(false);
+        if (rulesPanel != null) rulesPanel.SetActive(false);
     }
 
-    // --- °ÔÀÓ »óÅÂ °»½Å ---
-    public void UpdateUI() {
+    // --- ê²Œì„ ìƒíƒœ ê°±ì‹  ---
+    public void UpdateUI()
+    {
         if (GameManager.Instance == null || GameManager.Instance.gameState == null) return;
+
         GameState state = GameManager.Instance.gameState;
 
-        // [¼öÁ¤] null Ã¼Å© Ãß°¡ (GameSceneÀÌ ¾Æ´Ò ¶§ ¿À·ù ¹æÁö)
+        // 1. ê³µí†µ ì •ë³´ (HUD) ì—…ë°ì´íŠ¸
         if (playerNameText != null) playerNameText.text = state.currentPlayerId;
         if (attemptsText != null) attemptsText.text = state.attemptsLeft.ToString();
 
+        // 2. í€´ì¦ˆ/ì´ë™ íŒ¨ë„ ìƒíƒœ ê²°ì • (GameScene ì „ìš©)
         int currentFloor = state.currentFloor;
+        if (quizRiddleText == null) return; // GameSceneì´ ì•„ë‹ˆë©´ ì¤‘ë‹¨
+
+        // ì¸µ ë°ì´í„°ê°€ ìœ íš¨í•œì§€ í™•ì¸
         if (currentFloor < 1 || currentFloor > state.gameFloors.Count) return;
 
         Floor currentFloorData = state.gameFloors[currentFloor - 1];
         bool isCleared = state.IsFloorCleared(state.currentPlayerId, currentFloor);
         bool isLobbyOrRest = currentFloor == 1 || currentFloor == 7;
 
-        if (quizDescriptionText == null || quizRiddleText == null) return; // ÄûÁî ÆĞ³Î UI°¡ ¾øÀ¸¸é Áß´Ü
-
-        if (isLobbyOrRest) {
-            quizDescriptionText.text = currentFloor == 1 ? "1Ãş ·Îºñ" : "7Ãş ÈŞ½Ä °ø°£";
-            quizRiddleText.text = currentFloor == 1 ? "´ÙÀ½ ÃşÀ¸·Î ÀÌµ¿ÇÏ¼¼¿ä." : "Àá½Ã ½¬¾î°¡¼¼¿ä. (¿©±â¼­´Â Á¤´äÀ» Á¦ÃâÇÒ ¼ö ¾ø½À´Ï´Ù.)";
-        } else if (isCleared) {
-            quizDescriptionText.text = $"{currentFloor}Ãş (Å¬¸®¾î)";
-            quizRiddleText.text = "ÀÌ¹Ì Å¬¸®¾îÇÑ ÃşÀÔ´Ï´Ù. ´Ù¸¥ ÃşÀ¸·Î ÀÌµ¿ÇÏ¼¼¿ä.";
-        } else if (currentFloorData.traps.Count > 0) // ÄûÁî Ãş (¹ÌÅ¬¸®¾î)
-          {
-            Trap trap = currentFloorData.traps[0];
-            quizDescriptionText.text = $"--- {currentFloor}ÃşÀÔ´Ï´Ù. --- [¹æ¼Û] {trap.description}";
-            quizRiddleText.text = $"[¹®Á¦] {trap.riddle}";
+        // 3. í€´ì¦ˆ/ì´ë™ UI í…ìŠ¤íŠ¸ ì—…ë°ì´íŠ¸
+        if (isLobbyOrRest)
+        {
+            if (quizDescriptionText != null) quizDescriptionText.text = currentFloor == 1 ? "1ì¸µ ë¡œë¹„" : "7ì¸µ íœ´ì‹ ê³µê°„";
+            if (quizRiddleText != null) quizRiddleText.text = currentFloor == 1 ? "ë‹¤ìŒ ì¸µìœ¼ë¡œ ì´ë™í•˜ì„¸ìš”." : "ì ì‹œ ì‰¬ì–´ê°€ì„¸ìš”. (ì—¬ê¸°ì„œëŠ” ì •ë‹µì„ ì œì¶œí•  ìˆ˜ ì—†ìŠµë‹ˆë‹¤.)";
+        }
+        else if (isCleared)
+        {
+            if (quizDescriptionText != null) quizDescriptionText.text = $"{currentFloor}ì¸µ (í´ë¦¬ì–´)";
+            if (quizRiddleText != null) quizRiddleText.text = "ì´ë¯¸ í´ë¦¬ì–´í•œ ì¸µì…ë‹ˆë‹¤. ë‹¤ë¥¸ ì¸µìœ¼ë¡œ ì´ë™í•˜ì„¸ìš”.";
+        }
+        else
+        {
+            // í€´ì¦ˆ ì¸µ (ë¯¸í´ë¦¬ì–´)
+            if (currentFloorData.traps != null && currentFloorData.traps.Count > 0)
+            {
+                Trap trap = currentFloorData.traps[0];
+                if (quizDescriptionText != null) quizDescriptionText.text = $"--- {currentFloor}ì¸µì…ë‹ˆë‹¤. --- [ë°©ì†¡] {trap.description}";
+                if (quizRiddleText != null) quizRiddleText.text = $"[ë¬¸ì œ] {trap.riddle}";
+            }
         }
 
-        // ¹öÆ° È°¼ºÈ­/ºñÈ°¼ºÈ­ (null Ã¼Å© Ãß°¡)
-        bool canSubmit = !isCleared && !isLobbyOrRest && currentFloorData.traps.Count > 0;
+        // 4. ë²„íŠ¼ í™œì„±í™”/ë¹„í™œì„±í™” (ë¡œë¹„/íœ´ì‹/í´ë¦¬ì–´ ìƒíƒœì—ì„œëŠ” í€´ì¦ˆ ì œì¶œ ë¹„í™œì„±í™”)
+        bool canSubmit = !isCleared && !isLobbyOrRest;
         if (answerInput != null) answerInput.gameObject.SetActive(canSubmit);
         if (submitButton != null) submitButton.gameObject.SetActive(canSubmit);
 
+        // 1ì¸µ, 7ì¸µ, í´ë¦¬ì–´ ì¸µì—ì„œëŠ” ì¸µ ì´ë™ ê°€ëŠ¥
         bool canChangeFloor = isCleared || isLobbyOrRest;
         if (floorInput != null) floorInput.gameObject.SetActive(canChangeFloor);
         if (changeFloorButton != null) changeFloorButton.gameObject.SetActive(canChangeFloor);
     }
 
-    public void ShowMessage(string msg) {
-        if (messageText != null) messageText.text = msg;
-    }
-
-    // --- ¹öÆ° ÀÌº¥Æ® ÇÚµé·¯ (À¯´ÏÆ¼ ¹öÆ° OnClick¿¡ ¿¬°á) ---
-    public void OnStartGameButton(TMP_InputField inputField) {
-        string playerName = inputField.text.Trim();
-        if (string.IsNullOrEmpty(playerName)) {
-            ShowMessage("ÀÌ¸§À» ÀÔ·ÂÇØÁÖ¼¼¿ä.");
-            return;
+    public void ShowMessage(string msg)
+    {
+        if (messageText != null)
+        {
+            messageText.text = msg;
+            messageText.gameObject.SetActive(true);
         }
-        GameManager.Instance.StartNewPlayer(playerName);
     }
 
-    public void OnSubmitAnswerButton() {
-        if (answerInput == null) return;
+    // --- ë²„íŠ¼ ì´ë²¤íŠ¸ í•¸ë“¤ëŸ¬ (ìœ ë‹ˆí‹° ë²„íŠ¼ OnClickì— ì—°ê²°) ---
+
+    // (StartSceneUI.csë¡œ ì´ë™ë¨)
+    // public void OnStartGameButton(TMP_InputField inputField) { ... }
+
+    public void OnSubmitAnswerButton()
+    {
         string answer = answerInput.text;
         GameManager.Instance.SubmitAnswer(answer);
-        answerInput.text = ""; // ÀÔ·Â ÇÊµå ÃÊ±âÈ­
+        if (answerInput != null) answerInput.text = ""; // ì…ë ¥ í•„ë“œ ì´ˆê¸°í™”
     }
 
-    public void OnChangeFloorButton() {
-        if (floorInput == null) return;
-        if (int.TryParse(floorInput.text, out int newFloor)) {
+    public void OnChangeFloorButton()
+    {
+        if (int.TryParse(floorInput.text, out int newFloor))
+        {
             GameManager.Instance.ChangeFloor(newFloor);
-        } else {
-            ShowMessage("À¯È¿ÇÑ Ãş ¹øÈ£¸¦ ¼ıÀÚ·Î ÀÔ·ÂÇÏ¼¼¿ä.");
         }
-        floorInput.text = ""; // ÀÔ·Â ÇÊµå ÃÊ±âÈ­
+        else
+        {
+            ShowMessage("ìœ íš¨í•œ ì¸µ ë²ˆí˜¸ë¥¼ ìˆ«ìë¡œ ì…ë ¥í•˜ì„¸ìš”.");
+        }
+        if (floorInput != null) floorInput.text = ""; // ì…ë ¥ í•„ë“œ ì´ˆê¸°í™”
     }
 
-    public void OnExitGameButton() {
-        // OnClick()¿¡¼­ Á÷Á¢ È£Ãâ °¡´É (¸Å°³º¯¼ö ¾øÀ½)
+    public void OnExitGameButton()
+    {
         GameManager.Instance.SaveGame();
         SceneManager.LoadScene("GoodbyeScene");
     }
 
-    // --- [»õ·Î Ãß°¡µÈ ÇÔ¼ö 1] ---
-    // WinSceneÀÇ "±â·Ï ³²±â±â" ¹öÆ°ÀÌ È£ÃâÇÒ ÇÔ¼ö
-    public void OnSubmitSuccessMemo() {
-        if (memoInputField != null && GameManager.Instance != null) {
-            GameManager.Instance.SaveMemoAndExit(memoInputField.text, "success");
-        }
+    // --- WinScene / GameOverScene ë²„íŠ¼ í•¸ë“¤ëŸ¬ ---
+
+    // ì„±ê³µ (WinScene) ë²„íŠ¼ í´ë¦­ ì‹œ
+    public void OnSubmitSuccessMemo()
+    {
+        string memo = (memoInputField != null) ? memoInputField.text : "";
+        GameManager.Instance.SaveMemoAndExit(memo, "success");
     }
 
-    // --- [»õ·Î Ãß°¡µÈ ÇÔ¼ö 2] ---
-    // GameOverSceneÀÇ "±â·Ï ³²±â±â" ¹öÆ°ÀÌ È£ÃâÇÒ ÇÔ¼ö
-    public void OnSubmitFailMemo() {
-        if (memoInputField != null && GameManager.Instance != null) {
-            GameManager.Instance.SaveMemoAndExit(memoInputField.text, "fail");
-        }
+    // ì‹¤íŒ¨ (GameOverScene) ë²„íŠ¼ í´ë¦­ ì‹œ
+    public void OnSubmitFailMemo()
+    {
+        string memo = (memoInputField != null) ? memoInputField.text : "";
+        GameManager.Instance.SaveMemoAndExit(memo, "fail");
     }
 
 
-    // --- ¸ğ´Ş/ÆĞ³Î Á¦¾î ---
+    // --- ëª¨ë‹¬/íŒ¨ë„ ì œì–´ ---
 
-    // [¼öÁ¤µÊ] 1ÀÎÄª »óÈ£ÀÛ¿ëÀÌ È£ÃâÇÒ ÄûÁî ÆĞ³Î '¿­±â' ÇÔ¼ö
-    public void ShowQuizPanel() {
-        if (quizPanel != null) {
+    // (PlayerInteraction.csì—ì„œ í˜¸ì¶œë¨)
+    public void ShowQuizPanel()
+    {
+        if (quizPanel != null)
+        {
             quizPanel.SetActive(true);
-            UpdateUI(); // ÄûÁî ÆĞ³Î ¿­ ¶§ ÃÖ½Å Á¤º¸·Î °»½Å
-            if (TransitionManager.Instance != null) {
-                TransitionManager.Instance.SetUIMode(true); // 2D UI ¸ğµå È°¼ºÈ­
-            }
+            UpdateUI(); // í€´ì¦ˆ íŒ¨ë„ì„ ë„ìš¸ ë•Œ ìµœì‹  ì •ë³´ë¡œ ê°±ì‹ 
+            TransitionManager.Instance.SetUIMode(true); // 1ì¸ì¹­ ëª¨ë“œ ë„ê¸°
         }
     }
 
-    // [¼öÁ¤µÊ] ÄûÁî Á¦Ãâ ½Ã È£ÃâÇÒ ÄûÁî ÆĞ³Î '´İ±â' ÇÔ¼ö
-    public void HideQuizPanel() {
-        if (quizPanel != null) {
+    // (í€´ì¦ˆ ì œì¶œ ì„±ê³µ/ì‹¤íŒ¨ ì‹œ GameManagerì—ì„œ í˜¸ì¶œë¨)
+    public void HideQuizPanel()
+    {
+        if (quizPanel != null)
+        {
             quizPanel.SetActive(false);
-            if (TransitionManager.Instance != null) {
-                TransitionManager.Instance.SetUIMode(false); // 1ÀÎÄª Å½Çè ¸ğµå º¹±Í
-            }
+            TransitionManager.Instance.SetUIMode(false); // 1ì¸ì¹­ ëª¨ë“œ ì¼œê¸°
         }
     }
 
-    public void OnShowMemoButton() {
-        if (memoPanel != null) {
+    public void OnShowMemoButton()
+    {
+        if (memoPanel != null)
+        {
             memoPanel.SetActive(true);
             UpdateMemoList();
-            if (TransitionManager.Instance != null) {
-                TransitionManager.Instance.SetUIMode(true);
-            }
+            TransitionManager.Instance.SetUIMode(true);
         }
     }
 
-    public void OnShowRulesButton() {
-        if (rulesPanel != null) {
+    public void OnShowRulesButton()
+    {
+        if (rulesPanel != null)
+        {
             rulesPanel.SetActive(true);
-            if (TransitionManager.Instance != null) {
-                TransitionManager.Instance.SetUIMode(true);
-            }
+            TransitionManager.Instance.SetUIMode(true);
         }
     }
 
-    // ÀÌ ÇÔ¼ö´Â ¸ğ´Ş ´İ±â ¹öÆ°¿¡ ¿¬°áµË´Ï´Ù.
-    public void OnHideModalButton(GameObject panel) {
-        if (panel != null) {
+    // ì´ í•¨ìˆ˜ëŠ” ëª¨ë‹¬ ë‹«ê¸° ë²„íŠ¼ì— ì—°ê²°ë©ë‹ˆë‹¤.
+    public void OnHideModalButton(GameObject panel)
+    {
+        if (panel != null)
+        {
             panel.SetActive(false);
-            // [¼öÁ¤] ÄûÁî ÆĞ³ÎÀÌ ¾Æ´Ò ¶§¸¸ 1ÀÎÄª ¸ğµå·Î º¹±ÍÇÏµµ·Ï È®ÀÎ
-            if (TransitionManager.Instance != null && !quizPanel.activeSelf) {
+            // í€´ì¦ˆ íŒ¨ë„ì´ ë‹«í ë•Œë§Œ 1ì¸ì¹­ ëª¨ë“œë¡œ ë³µê·€
+            if (panel == quizPanel)
+            {
                 TransitionManager.Instance.SetUIMode(false);
             }
+            // (ë©”ëª¨/ê·œì¹™ íŒ¨ë„ì´ ë‹«í ë•ŒëŠ” í€´ì¦ˆ íŒ¨ë„ì´ ë’¤ì— ì—´ë ¤ìˆì„ ìˆ˜ ìˆìœ¼ë¯€ë¡œ, 1ì¸ì¹­ ëª¨ë“œë¥¼ ì¼œì§€ ì•ŠìŒ)
+            // -> ë§Œì•½ ë©”ëª¨/ê·œì¹™ì´ í€´ì¦ˆì™€ ë³„ê°œë¡œ 1ì¸ì¹­ì—ì„œ ëœ¬ë‹¤ë©´ SetUIMode(false) í•„ìš”
         }
     }
 
-    // --- ¸Ş¸ğ ¸®½ºÆ® ·»´õ¸µ ---
-    private void UpdateMemoList() {
-        if (memoListContent == null || memoItemPrefab == null) {
-            Debug.LogWarning("Memo List Content ¶Ç´Â PrefabÀÌ UIManager¿¡ ¿¬°áµÇÁö ¾Ê¾Ò½À´Ï´Ù.");
-            return;
-        }
+    // --- ë©”ëª¨ ë¦¬ìŠ¤íŠ¸ ë Œë”ë§ ---
+    private void UpdateMemoList()
+    {
+        if (memoListContent == null || memoItemPrefab == null) return;
 
-        // ±âÁ¸ ¸Ş¸ğ ¾ÆÀÌÅÛ Á¦°Å
-        foreach (Transform child in memoListContent) {
+        // ê¸°ì¡´ ë©”ëª¨ ì•„ì´í…œ ì œê±°
+        foreach (Transform child in memoListContent)
+        {
             Destroy(child.gameObject);
         }
 
         var history = GameManager.Instance.gameState.playerHistory;
         if (history == null || history.Count == 0) return;
 
-        // ÃÖ½Å¼øÀ¸·Î Ç¥½Ã (¿ª¼ø)
-        for (int i = history.Count - 1; i >= 0; i--) {
+        // ìµœì‹ ìˆœìœ¼ë¡œ í‘œì‹œ (ì—­ìˆœ)
+        for (int i = history.Count - 1; i >= 0; i--)
+        {
             PlayerRecord record = history[i];
+            if (record == null || string.IsNullOrEmpty(record.memo)) continue;
+
             GameObject item = Instantiate(memoItemPrefab, memoListContent);
 
-            // ÇÁ¸®ÆÕ ±¸Á¶¿¡ ¸Â°Ô ÅØ½ºÆ® ÄÄÆ÷³ÍÆ® ¼³Á¤ (ÀÚ½Ä¿¡¼­ 2°³ Ã£´Â´Ù°í °¡Á¤)
+            // í”„ë¦¬íŒ¹ ë‚´ì˜ í…ìŠ¤íŠ¸ ì»´í¬ë„ŒíŠ¸ë“¤ì„ ì°¾ì•„ì„œ ì„¤ì •í•©ë‹ˆë‹¤.
+            // (í”„ë¦¬íŒ¹ êµ¬ì¡°ì— ë”°ë¼ GetComponentsInChildren ëŒ€ì‹  ì§ì ‘ ì°¸ì¡°ê°€ ë” ì¢‹ìŒ)
             TMP_Text[] texts = item.GetComponentsInChildren<TMP_Text>();
-            if (texts.Length >= 2) {
-                texts[0].text = record.playerId;
-                texts[1].text = $"\"{record.memo}\"";
+            if (texts.Length >= 2)
+            {
+                texts[0].text = record.playerId; // ì´ë¦„
+                texts[1].text = $"\"{record.memo}\""; // ë©”ëª¨ ë‚´ìš©
             }
+        }
+    }
+
+    // â­ï¸â­ï¸â­ï¸â­ï¸â­ï¸ ì—¬ê¸°ë¶€í„°ê°€ ìƒˆë¡œ ì¶”ê°€ëœ ë¶€ë¶„ì…ë‹ˆë‹¤! â­ï¸â­ï¸â­ï¸â­ï¸â­ï¸
+    // --- 1ì¸ì¹­ ìƒí˜¸ì‘ìš© ë©”ì‹œì§€ (PlayerInteraction.csì—ì„œ í˜¸ì¶œ) ---
+
+    public void ShowInteractionMessage(string msg)
+    {
+        if (messageText != null)
+        {
+            messageText.text = msg;
+            messageText.gameObject.SetActive(true);
+        }
+    }
+
+    public void HideInteractionMessage()
+    {
+        if (messageText != null)
+        {
+            messageText.text = "";
+            // (ë©”ì‹œì§€ í…ìŠ¤íŠ¸ëŠ” ShowMessageì—ì„œë§Œ ì¼œì§€ê³ , í‰ì†Œì—” êº¼ì ¸ìˆì§€ ì•Šë„ë¡ í•  ìˆ˜ë„ ìˆìŠµë‹ˆë‹¤)
+            // (ì¼ë‹¨ì€ í…ìŠ¤íŠ¸ë¥¼ ë¹„ìš°ëŠ” ê²ƒìœ¼ë¡œ ì²˜ë¦¬)
+            // messageText.gameObject.SetActive(false); 
         }
     }
 }
