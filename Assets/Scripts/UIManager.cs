@@ -17,13 +17,22 @@ public class UIManager : MonoBehaviour
     public TMP_Text quizDescriptionText;
 
     [Header("Input Fields")]
-    public TMP_InputField floorInput;
+    // public TMP_InputField floorInput; // [삭제됨]
     public TMP_InputField answerInput;
     public TMP_InputField memoInputField; // Win/GameOver 씬에서 사용
 
     [Header("Buttons")]
     public Button submitButton;
-    public Button changeFloorButton;
+    // public Button changeFloorButton; // [삭제됨]
+
+    // --- ▼ [새로 추가된 부분] 엘리베이터 UI ---
+    [Header("Elevator UI")]
+    [Tooltip("숫자패드, 이동 버튼 등을 포함하는 부모 패널")]
+    public GameObject elevatorPanel;
+    [Tooltip("입력한 층 번호가 표시될 텍스트")]
+    public TMP_Text elevatorDisplay;
+    private string currentElevatorInput = ""; // 현재 입력된 층 번호
+    // --- ▲ [새로 추가된 부분] ---
 
     [Header("Panel References")]
     public GameObject quizPanel;
@@ -42,16 +51,10 @@ public class UIManager : MonoBehaviour
             return;
         }
         Instance = this;
-
-        // 씬(Scene)이 바뀌어도 UI 관리자가 파괴되지 않도록 설정
-        // (GameManager와 함께)
-        // DontDestroyOnLoad(gameObject); // -> GameManager가 이미 DontDestroyOnLoad이므로, UI는 씬마다 새로 로드되는 것이 나을 수 있습니다. 씬 전환 시 오류가 나면 이 부분을 주석 처리합니다.
     }
 
     private void Start()
     {
-        // 씬(Scene)이 로드될 때 UI를 즉시 갱신합니다.
-        // 단, GameScene이 아닐 경우 (StartScene 등) GameManager가 null일 수 있습니다.
         if (GameManager.Instance != null && GameManager.Instance.gameState != null)
         {
             UpdateUI();
@@ -61,6 +64,12 @@ public class UIManager : MonoBehaviour
         if (quizPanel != null) quizPanel.SetActive(false);
         if (memoPanel != null) memoPanel.SetActive(false);
         if (rulesPanel != null) rulesPanel.SetActive(false);
+
+        // --- ▼ [새로 추가된 부분] 엘리베이터 UI 초기화 ---
+        if (elevatorDisplay != null) elevatorDisplay.text = "";
+        currentElevatorInput = "";
+        // elevatorPanel 자체는 UpdateUI에서 상태에 따라 켜고 끕니다.
+        // --- ▲ [새로 추가된 부분] ---
     }
 
     // --- 게임 상태 갱신 ---
@@ -78,14 +87,13 @@ public class UIManager : MonoBehaviour
         int currentFloor = state.currentFloor;
         if (quizRiddleText == null) return; // GameScene이 아니면 중단
 
-        // 층 데이터가 유효한지 확인
         if (currentFloor < 1 || currentFloor > state.gameFloors.Count) return;
 
         Floor currentFloorData = state.gameFloors[currentFloor - 1];
         bool isCleared = state.IsFloorCleared(state.currentPlayerId, currentFloor);
         bool isLobbyOrRest = currentFloor == 1 || currentFloor == 7;
 
-        // 3. 퀴즈/이동 UI 텍스트 업데이트
+        // 3. 퀴즈 UI 텍스트 업데이트
         if (isLobbyOrRest)
         {
             if (quizDescriptionText != null) quizDescriptionText.text = currentFloor == 1 ? "1층 로비" : "7층 휴식 공간";
@@ -112,10 +120,11 @@ public class UIManager : MonoBehaviour
         if (answerInput != null) answerInput.gameObject.SetActive(canSubmit);
         if (submitButton != null) submitButton.gameObject.SetActive(canSubmit);
 
-        // 1층, 7층, 클리어 층에서는 층 이동 가능
+        // --- ▼ [수정된 부분] 엘리베이터 UI 활성화/비활성화 ---
+        // 1층, 7층, 클리어 층에서는 층 이동(엘리베이터) 가능
         bool canChangeFloor = isCleared || isLobbyOrRest;
-        if (floorInput != null) floorInput.gameObject.SetActive(canChangeFloor);
-        if (changeFloorButton != null) changeFloorButton.gameObject.SetActive(canChangeFloor);
+        if (elevatorPanel != null) elevatorPanel.SetActive(canChangeFloor);
+        // --- ▲ [수정된 부분] ---
     }
 
     public void ShowMessage(string msg)
@@ -129,9 +138,6 @@ public class UIManager : MonoBehaviour
 
     // --- 버튼 이벤트 핸들러 (유니티 버튼 OnClick에 연결) ---
 
-    // (StartSceneUI.cs로 이동됨)
-    // public void OnStartGameButton(TMP_InputField inputField) { ... }
-
     public void OnSubmitAnswerButton()
     {
         string answer = answerInput.text;
@@ -139,18 +145,45 @@ public class UIManager : MonoBehaviour
         if (answerInput != null) answerInput.text = ""; // 입력 필드 초기화
     }
 
-    public void OnChangeFloorButton()
+    // [삭제됨] public void OnChangeFloorButton() { ... }
+
+    // --- ▼ [새로 추가된 부분] 엘리베이터 버튼 함수 ---
+
+    [Tooltip("엘리베이터 숫자(0~9) 버튼을 눌렀을 때 호출됩니다.")]
+    public void OnElevatorNumpadPress(string digit)
     {
-        if (int.TryParse(floorInput.text, out int newFloor))
+        // 층 번호는 2자리까지만 입력받음 (1~30층)
+        if (currentElevatorInput.Length < 2)
+        {
+            currentElevatorInput += digit;
+            if (elevatorDisplay != null) elevatorDisplay.text = currentElevatorInput;
+        }
+    }
+
+    [Tooltip("엘리베이터 'C' (지우기) 버튼을 눌렀을 때 호출됩니다.")]
+    public void OnElevatorClear()
+    {
+        currentElevatorInput = "";
+        if (elevatorDisplay != null) elevatorDisplay.text = "";
+    }
+
+    [Tooltip("엘리베이터 'GO' (이동) 버튼을 눌렀을 때 호출됩니다.")]
+    public void OnElevatorGo()
+    {
+        if (int.TryParse(currentElevatorInput, out int newFloor))
         {
             GameManager.Instance.ChangeFloor(newFloor);
         }
         else
         {
-            ShowMessage("유효한 층 번호를 숫자로 입력하세요.");
+            ShowMessage("유효한 층 번호를 입력하세요.");
         }
-        if (floorInput != null) floorInput.text = ""; // 입력 필드 초기화
+
+        // 입력 초기화
+        OnElevatorClear();
     }
+    // --- ▲ [새로 추가된 부분] ---
+
 
     public void OnExitGameButton()
     {
@@ -160,14 +193,12 @@ public class UIManager : MonoBehaviour
 
     // --- WinScene / GameOverScene 버튼 핸들러 ---
 
-    // 성공 (WinScene) 버튼 클릭 시
     public void OnSubmitSuccessMemo()
     {
         string memo = (memoInputField != null) ? memoInputField.text : "";
         GameManager.Instance.SaveMemoAndExit(memo, "success");
     }
 
-    // 실패 (GameOverScene) 버튼 클릭 시
     public void OnSubmitFailMemo()
     {
         string memo = (memoInputField != null) ? memoInputField.text : "";
@@ -177,24 +208,22 @@ public class UIManager : MonoBehaviour
 
     // --- 모달/패널 제어 ---
 
-    // (PlayerInteraction.cs에서 호출됨)
     public void ShowQuizPanel()
     {
         if (quizPanel != null)
         {
             quizPanel.SetActive(true);
-            UpdateUI(); // 퀴즈 패널을 띄울 때 최신 정보로 갱신
-            TransitionManager.Instance.SetUIMode(true); // 1인칭 모드 끄기
+            UpdateUI();
+            TransitionManager.Instance.SetUIMode(true);
         }
     }
 
-    // (퀴즈 제출 성공/실패 시 GameManager에서 호출됨)
     public void HideQuizPanel()
     {
         if (quizPanel != null)
         {
             quizPanel.SetActive(false);
-            TransitionManager.Instance.SetUIMode(false); // 1인칭 모드 켜기
+            TransitionManager.Instance.SetUIMode(false);
         }
     }
 
@@ -217,19 +246,15 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // 이 함수는 모달 닫기 버튼에 연결됩니다.
     public void OnHideModalButton(GameObject panel)
     {
         if (panel != null)
         {
             panel.SetActive(false);
-            // 퀴즈 패널이 닫힐 때만 1인칭 모드로 복귀
             if (panel == quizPanel)
             {
                 TransitionManager.Instance.SetUIMode(false);
             }
-            // (메모/규칙 패널이 닫힐 때는 퀴즈 패널이 뒤에 열려있을 수 있으므로, 1인칭 모드를 켜지 않음)
-            // -> 만약 메모/규칙이 퀴즈와 별개로 1인칭에서 뜬다면 SetUIMode(false) 필요
         }
     }
 
@@ -238,7 +263,6 @@ public class UIManager : MonoBehaviour
     {
         if (memoListContent == null || memoItemPrefab == null) return;
 
-        // 기존 메모 아이템 제거
         foreach (Transform child in memoListContent)
         {
             Destroy(child.gameObject);
@@ -247,7 +271,6 @@ public class UIManager : MonoBehaviour
         var history = GameManager.Instance.gameState.playerHistory;
         if (history == null || history.Count == 0) return;
 
-        // 최신순으로 표시 (역순)
         for (int i = history.Count - 1; i >= 0; i--)
         {
             PlayerRecord record = history[i];
@@ -255,8 +278,6 @@ public class UIManager : MonoBehaviour
 
             GameObject item = Instantiate(memoItemPrefab, memoListContent);
 
-            // 프리팹 내의 텍스트 컴포넌트들을 찾아서 설정합니다.
-            // (프리팹 구조에 따라 GetComponentsInChildren 대신 직접 참조가 더 좋음)
             TMP_Text[] texts = item.GetComponentsInChildren<TMP_Text>();
             if (texts.Length >= 2)
             {
@@ -266,9 +287,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // ⭐️⭐️⭐️⭐️⭐️ 여기부터가 새로 추가된 부분입니다! ⭐️⭐️⭐️⭐️⭐️
     // --- 1인칭 상호작용 메시지 (PlayerInteraction.cs에서 호출) ---
-
     public void ShowInteractionMessage(string msg)
     {
         if (messageText != null)
@@ -283,9 +302,6 @@ public class UIManager : MonoBehaviour
         if (messageText != null)
         {
             messageText.text = "";
-            // (메시지 텍스트는 ShowMessage에서만 켜지고, 평소엔 꺼져있지 않도록 할 수도 있습니다)
-            // (일단은 텍스트를 비우는 것으로 처리)
-            // messageText.gameObject.SetActive(false); 
         }
     }
 }
