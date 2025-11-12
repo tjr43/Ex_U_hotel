@@ -12,14 +12,17 @@ public class PlayerInteraction : MonoBehaviour
     // 상호작용 메시지를 띄울 UIManager 참조
     private UIManager uiManager;
 
-    private void Start()
-    {
+    private void Start() {
         // 씬(Scene)에 있는 UIManager를 찾음 (GameScene의 Canvas에 있어야 함)
-        uiManager = FindObjectOfType<UIManager>();
+
+        // --- ▼ [CS0618 경고 수정] ---
+        // FindObjectOfType<T>()는 구식(obsolete)입니다.
+        // Unity가 권장하는 'FindAnyObjectByType<T>()'으로 변경합니다.
+        uiManager = FindAnyObjectByType<UIManager>();
+        // --- ▲ [경고 수정 완료] ---
     }
 
-    void Update()
-    {
+    void Update() {
         if (playerCamera == null || uiManager == null) return;
 
         // 카메라 정중앙에서 레이(Ray)를 쏨
@@ -28,29 +31,22 @@ public class PlayerInteraction : MonoBehaviour
 
         bool hitSomething = Physics.Raycast(ray, out hitInfo, interactionDistance);
 
-        if (hitSomething)
-        {
+        if (hitSomething) {
             // 레이가 QuizTrigger 태그가 붙은 물체에 닿았는지 확인
-            if (hitInfo.collider.CompareTag("QuizTrigger"))
-            {
+            if (hitInfo.collider.CompareTag("QuizTrigger")) {
                 // UIManager에 메시지 표시 요청
                 uiManager.ShowInteractionMessage("E 키를 눌러 퀴즈 시작");
 
                 // 'E' 키를 눌렀는지 확인
-                if (Input.GetKeyDown(KeyCode.E))
-                {
+                if (Input.GetKeyDown(KeyCode.E)) {
                     // UIManager에 퀴즈 패널을 띄우라고 명령
                     uiManager.ShowQuizPanel();
                 }
-            }
-            else
-            {
+            } else {
                 // 다른 물체에 닿았을 때는 메시지 숨김
                 uiManager.HideInteractionMessage();
             }
-        }
-        else
-        {
+        } else {
             // 레이가 아무것에도 닿지 않았을 때 메시지 숨김
             uiManager.HideInteractionMessage();
         }
