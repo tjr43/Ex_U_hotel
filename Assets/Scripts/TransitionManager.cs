@@ -33,15 +33,17 @@ public class TransitionManager : MonoBehaviour
         // 현재 활성화된 씬의 이름을 가져옵니다.
         string currentSceneName = SceneManager.GetActiveScene().name;
 
-        // 씬 이름이 "GameScene"일 때만 1인칭 모드(마우스 잠금)로 시작합니다.
-        if (currentSceneName == "GameScene")
+        // --- ▼▼▼ [수정된 부분!] ▼▼▼ ---
+        // "GameScene" 또는 "StartScene"일 때 1인칭 모드로 시작합니다.
+        if (currentSceneName == "GameScene" || currentSceneName == "StartScene")
         {
-            SetUIMode(false); // 1인칭 탐험 모드
+            SetUIMode(false); // 1인칭 탐험 모드 (움직임 O)
         }
+        // --- ▲▲▲ [수정 완료] ▲▲▲ ---
         else
         {
-            // "StartScene", "WinScene", "GameOverScene" 등 다른 모든 씬에서는 UI 모드로 시작합니다.
-            SetUIMode(true); // UI 조작 모드 (마우스 보이기)
+            // "WinScene", "GameOverScene" 등 다른 모든 씬에서는 UI 모드로 시작합니다.
+            SetUIMode(true); // UI 조작 모드 (움직임 X)
         }
     }
 
@@ -50,12 +52,12 @@ public class TransitionManager : MonoBehaviour
     {
         if (movementScript != null)
         {
-            movementScript.enabled = !showUI; // 이동 비활성화 [cite: 230-231]
+            movementScript.enabled = !showUI; // 이동 비활성화
         }
 
         if (inputScript != null)
         {
-            inputScript.enabled = !showUI; // 입력 비활성화 [cite: 233-234]
+            inputScript.enabled = !showUI; // 입력 비활성화
         }
 
         if (showUI)
