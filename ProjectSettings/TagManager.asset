@@ -5,6 +5,9 @@ TagManager:
   serializedVersion: 3
   tags:
   - QuizTrigger
+  - CinemachineTarget
+  - Rule
+  - Memo
   layers:
   - Default
   - TransparentFX
