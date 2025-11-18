@@ -4,44 +4,56 @@ public class rulesTrigger : MonoBehaviour
 {
     private bool isPlayerNear = false;
 
-    // 플레이어가 영역 안에 들어왔을 때
     private void OnTriggerEnter(Collider other)
     {
-        // 들어온 물체가 'Player' 태그를 달고 있는지 확인
         if (other.CompareTag("Player"))
         {
             isPlayerNear = true;
-            // UIManager를 불러와서 메시지 띄우기
             if (UIManager.Instance != null)
             {
-                UIManager.Instance.ShowInteractionMessage("F를 눌러 규칙 확인");
+                UIManager.Instance.ShowInteractionMessage("Press F");
             }
         }
     }
 
-    // 플레이어가 영역 밖으로 나갔을 때
     private void OnTriggerExit(Collider other)
     {
         if (other.CompareTag("Player"))
         {
             isPlayerNear = false;
-            // 메시지 지우기
             if (UIManager.Instance != null)
             {
                 UIManager.Instance.HideInteractionMessage();
+                // 영역을 벗어나면 패널도 같이 닫아주는 것이 안전합니다.
+                if (UIManager.Instance.rulesPanel.activeSelf)
+                {
+                    UIManager.Instance.CloseAllPanels();
+                }
             }
         }
     }
 
     private void Update()
     {
-        // 플레이어가 근처에 있고 F 키를 눌렀을 때
         if (isPlayerNear && Input.GetKeyDown(KeyCode.F))
         {
             if (UIManager.Instance != null)
             {
-                UIManager.Instance.OnShowMemoButton(); // 기존에 만들어진 메모 패널 열기 함수 호출
-                UIManager.Instance.HideInteractionMessage(); // 상호작용 메시지는 이제 숨김
+                // [중요] 현재 패널이 열려있는지 확인합니다.
+                // UIManager의 rulesPanel 변수가 public이라 직접 확인 가능합니다.
+                bool isOpen = UIManager.Instance.rulesPanel.activeSelf;
+
+                if (isOpen)
+                {
+                    // 이미 열려있으면 -> 닫기 (게임 모드로 복귀)
+                    UIManager.Instance.CloseAllPanels();
+                }
+                else
+                {
+                    // 닫혀있으면 -> 열기 (UI 모드로 전환, 화면 회전 멈춤)
+                    UIManager.Instance.ShowRulePanel();
+                    UIManager.Instance.HideInteractionMessage();
+                }
             }
         }
     }
