@@ -1,20 +1,16 @@
 using UnityEngine;
-using StarterAssets; // StarterAssets의 클래스를 사용하기 위해 필요합니다.
-using UnityEngine.SceneManagement; // 씬 관리를 위해 이 줄을 추가합니다.
+using StarterAssets;
+using UnityEngine.SceneManagement;
 
 public class TransitionManager : MonoBehaviour
 {
     public static TransitionManager Instance { get; private set; }
 
-    [Header("1인칭 컨트롤러 컴포넌트 연결")]
+    // [수정] 이 변수들은 이제 Inspector에 보이지 않습니다.
+    // 스크립트가 씬을 로드할 때마다 자동으로 찾아줍니다.
+    private FirstPersonController movementScript;
+    private StarterAssetsInputs inputScript;
 
-    [Tooltip("PlayerCapsule 오브젝트에 있는 'FirstPersonController' 스크립트")]
-    public FirstPersonController movementScript;
-
-    [Tooltip("PlayerCapsule 오브젝트에 있는 'StarterAssetsInputs' 스크립트")]
-    public StarterAssetsInputs inputScript;
-
-    // Awake()는 Instance 설정용으로만 사용합니다.
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -24,50 +20,73 @@ public class TransitionManager : MonoBehaviour
         }
         Instance = this;
 
-        // DontDestroyOnLoad(gameObject); // GameManager가 이미 DontDestroyOnLoad이므로, 이 스크립트가 GameManager와 같은 오브젝트에 있다면 이 줄은 필요 없습니다.
+        // GameManager 오브젝트가 씬 전환 시 파괴되지 않도록 설정합니다.
+        DontDestroyOnLoad(gameObject);
+
+        // [추가] 씬이 로드될 때마다 OnSceneLoaded 함수를 실행하도록 등록
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
-    // 씬이 완전히 로드된 후 Start()에서 모드를 설정합니다.
-    private void Start()
+    // [추가] 씬이 로드될 때마다 실행될 함수
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // 현재 활성화된 씬의 이름을 가져옵니다.
-        string currentSceneName = SceneManager.GetActiveScene().name;
+        // 1. 새로 로드된 씬에서 "Player" 태그를 가진 오브젝트를 찾습니다.
+        // (중요: StartScene과 GameScene의 PlayerCapsule 모두 태그가 "Player"여야 합니다.)
+        GameObject player = GameObject.FindWithTag("Player");
 
-        // --- ▼▼▼ [수정된 부분!] ▼▼▼ ---
-        // "GameScene" 또는 "StartScene"일 때 1인칭 모드로 시작합니다.
-        if (currentSceneName == "GameScene" || currentSceneName == "StartScene")
+        // 2. 플레이어를 찾았으면, 스크립트 참조를 새로고침합니다.
+        if (player != null)
         {
-            SetUIMode(false); // 1인칭 탐험 모드 (움직임 O)
+            movementScript = player.GetComponent<FirstPersonController>();
+            inputScript = player.GetComponent<StarterAssetsInputs>();
+            Debug.Log("Player found in scene: " + scene.name); // 확인용 로그
         }
-        // --- ▲▲▲ [수정 완료] ▲▲▲ ---
         else
         {
-            // "WinScene", "GameOverScene" 등 다른 모든 씬에서는 UI 모드로 시작합니다.
-            SetUIMode(true); // UI 조작 모드 (움직임 X)
+            // WinScene, GameOverScene 등 플레이어가 없는 씬
+            movementScript = null;
+            inputScript = null;
+            Debug.Log("No player found in scene: " + scene.name); // 확인용 로그
+        }
+
+        // 3. 씬 이름에 따라 UI 모드를 설정합니다.
+        string currentSceneName = scene.name;
+        if (currentSceneName == "GameScene" || currentSceneName == "StartScene")
+        {
+            SetUIMode(false); // 1인칭 탐험 모드
+        }
+        else
+        {
+            SetUIMode(true); // UI 조작 모드
         }
     }
 
-    // UI 모드 설정: true = UI 조작 모드, false = 1인칭 탐험 모드
+    // [추가] 스크립트가 파괴될 때 이벤트 구독 해제 (메모리 누수 방지)
+    private void OnDestroy()
+    {
+        if (Instance == this)
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+    }
+
+    // UI 모드 설정 (이 함수는 거의 그대로입니다)
     public void SetUIMode(bool showUI)
     {
+        // 스크립트 참조가 null일 때를 대비한 안전 확인
         if (movementScript != null)
         {
-            movementScript.enabled = !showUI; // 이동 비활성화
+            movementScript.enabled = !showUI;
         }
-
         if (inputScript != null)
         {
-            inputScript.enabled = !showUI; // 입력 비활성화
+            inputScript.enabled = !showUI;
         }
 
         if (showUI)
         {
-            // UI 모드: 마우스 커서 보이기
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-
-            // (수정된 부분) inputScript가 null이 아닐 때만 내부 값을 초기화합니다.
-            // (StartScene 등에는 inputScript가 할당되어 있지 않으므로 오류 방지)
             if (inputScript != null)
             {
                 inputScript.look = Vector2.zero;
@@ -76,7 +95,6 @@ public class TransitionManager : MonoBehaviour
         }
         else
         {
-            // 1인칭 모드: 마우스 커서 잠그기
             Cursor.lockState = CursorLockMode.Locked;
             Cursor.visible = false;
         }
