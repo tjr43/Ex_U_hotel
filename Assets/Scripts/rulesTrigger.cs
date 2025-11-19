@@ -2,59 +2,61 @@ using UnityEngine;
 
 public class rulesTrigger : MonoBehaviour
 {
+    [Header("설정")]
+    public float detectionRadius = 5.0f;
+
+    [Header("3D 텍스트 연결 (필수)")]
+    public GameObject interactionText3D; // 여기에 3D Text 오브젝트를 넣으세요
+
+    private Transform playerTransform;
     private bool isPlayerNear = false;
 
-    private void OnTriggerEnter(Collider other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            isPlayerNear = true;
-            if (UIManager.Instance != null)
-            {
-                UIManager.Instance.ShowInteractionMessage("Press F");
-            }
+    private void Start() {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null) playerTransform = player.transform;
+
+        if (interactionText3D != null) {
+            interactionText3D.SetActive(false);
         }
     }
 
-    private void OnTriggerExit(Collider other)
-    {
-        if (other.CompareTag("Player"))
-        {
-            isPlayerNear = false;
-            if (UIManager.Instance != null)
-            {
-                UIManager.Instance.HideInteractionMessage();
-                // 영역을 벗어나면 패널도 같이 닫아주는 것이 안전합니다.
-                if (UIManager.Instance.rulesPanel.activeSelf)
-                {
+    private void Update() {
+        if (playerTransform == null) return;
+
+        float distance = Vector3.Distance(transform.position, playerTransform.position);
+
+        if (distance <= detectionRadius) {
+            if (!isPlayerNear) {
+                isPlayerNear = true;
+                if (interactionText3D != null) interactionText3D.SetActive(true);
+                if (UIManager.Instance != null) UIManager.Instance.HideInteractionMessage();
+            }
+
+            if (Input.GetKeyDown(KeyCode.F)) {
+                if (UIManager.Instance != null) {
+                    if (UIManager.Instance.rulesPanel.activeSelf) {
+                        UIManager.Instance.CloseAllPanels();
+                        if (interactionText3D != null) interactionText3D.SetActive(true);
+                    } else {
+                        UIManager.Instance.ShowRulePanel();
+                        if (interactionText3D != null) interactionText3D.SetActive(false);
+                    }
+                }
+            }
+        } else {
+            if (isPlayerNear) {
+                isPlayerNear = false;
+                if (interactionText3D != null) interactionText3D.SetActive(false);
+
+                if (UIManager.Instance != null && UIManager.Instance.rulesPanel.activeSelf) {
                     UIManager.Instance.CloseAllPanels();
                 }
             }
         }
     }
 
-    private void Update()
-    {
-        if (isPlayerNear && Input.GetKeyDown(KeyCode.F))
-        {
-            if (UIManager.Instance != null)
-            {
-                // [중요] 현재 패널이 열려있는지 확인합니다.
-                // UIManager의 rulesPanel 변수가 public이라 직접 확인 가능합니다.
-                bool isOpen = UIManager.Instance.rulesPanel.activeSelf;
-
-                if (isOpen)
-                {
-                    // 이미 열려있으면 -> 닫기 (게임 모드로 복귀)
-                    UIManager.Instance.CloseAllPanels();
-                }
-                else
-                {
-                    // 닫혀있으면 -> 열기 (UI 모드로 전환, 화면 회전 멈춤)
-                    UIManager.Instance.ShowRulePanel();
-                    UIManager.Instance.HideInteractionMessage();
-                }
-            }
-        }
+    private void OnDrawGizmosSelected() {
+        Gizmos.color = Color.cyan;
+        Gizmos.DrawWireSphere(transform.position, detectionRadius);
     }
 }
