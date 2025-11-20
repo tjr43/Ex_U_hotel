@@ -62,6 +62,42 @@ public class UIManager : MonoBehaviour
         currentElevatorInput = "";
     }
 
+    // ▼▼▼ [새로 추가된 부분: 키보드 입력 감지] ▼▼▼
+    private void Update()
+    {
+        // 엘리베이터 패널이 켜져 있을 때만 작동
+        if (elevatorPanel != null && elevatorPanel.activeSelf)
+        {
+            // 숫자 키 (0~9) 입력 감지 (알파벳 위 숫자키 & 오른쪽 넘패드 모두 지원)
+            for (int i = 0; i <= 9; i++)
+            {
+                if (Input.GetKeyDown(KeyCode.Alpha0 + i) || Input.GetKeyDown(KeyCode.Keypad0 + i))
+                {
+                    OnElevatorNumpadPress(i.ToString());
+                }
+            }
+
+            // 엔터 키 (이동)
+            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            {
+                OnElevatorGo();
+            }
+
+            // 백스페이스 (지우기)
+            if (Input.GetKeyDown(KeyCode.Backspace))
+            {
+                OnElevatorClear();
+            }
+
+            // ESC (닫기)
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                CloseAllPanels();
+            }
+        }
+    }
+    // ▲▲▲ [추가 끝] ▲▲▲
+
     public void UpdateUI()
     {
         if (GameManager.Instance == null || GameManager.Instance.gameState == null) return;
@@ -228,6 +264,11 @@ public class UIManager : MonoBehaviour
             {
                 texts[0].text = record.playerId;
                 texts[1].text = record.memo;
+            }
+            else if (texts.Length == 1)
+            {
+                // 텍스트가 하나뿐인 경우 (단순 텍스트 프리팹일 때)
+                texts[0].text = $"{record.playerId}: {record.memo}";
             }
         }
     }
