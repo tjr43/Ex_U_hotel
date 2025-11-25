@@ -1,9 +1,9 @@
 ﻿using UnityEngine;
-using UnityEngine.SceneManagement;
+using UnityEngine.SceneManagement; // 씬 이동을 위해 필수
 using TMPro;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Controls; // ⭐ KeyControl 사용을 위한 필수 네임스페이스
+using UnityEngine.InputSystem.Controls;
 
 public class UIManager : MonoBehaviour
 {
@@ -57,22 +57,39 @@ public class UIManager : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.gameState != null)
         {
             UpdateUI();
+            CheckAutoPopup(); // 씬 시작 시 퀴즈 팝업 체크
         }
-        CloseAllPanels(); // 시작할 때 모든 패널 숨김
+
+        // 시작할 때 기본적으로 패널들은 닫아둠 (퀴즈 층이면 CheckAutoPopup이 다시 켬)
+        CloseAllPanels();
 
         if (elevatorDisplay != null) elevatorDisplay.text = "";
         currentElevatorInput = "";
     }
 
+    // ▼▼▼ [추가됨] 씬이 로드되자마자 "여기가 퀴즈 층인가?" 확인하는 함수 ▼▼▼
+    private void CheckAutoPopup()
+    {
+        int floor = GameManager.Instance.gameState.currentFloor;
+        bool isCleared = GameManager.Instance.gameState.IsFloorCleared(floor);
+        bool isLobbyOrRest = (floor == 1 || floor == 7);
+
+        // 퀴즈 층이고, 아직 안 깼다면 -> 바로 퀴즈 패널 열기!
+        if (!isLobbyOrRest && !isCleared)
+        {
+            // 약간의 딜레이 후 띄우거나 바로 띄움
+            ShowQuizPanel();
+        }
+    }
+    // ▲▲▲
+
     private void Update()
     {
-        // 엘리베이터 패널이 켜져 있을 때만 작동
         if (elevatorPanel != null && elevatorPanel.activeSelf)
         {
             var kb = Keyboard.current;
             if (kb == null) return;
 
-            // 숫자 키 (0~9) 입력 감지 (상단 숫자키 & 키패드 모두 지원)
             CheckNumberInput(kb.digit0Key, kb.numpad0Key, "0");
             CheckNumberInput(kb.digit1Key, kb.numpad1Key, "1");
             CheckNumberInput(kb.digit2Key, kb.numpad2Key, "2");
@@ -84,19 +101,14 @@ public class UIManager : MonoBehaviour
             CheckNumberInput(kb.digit8Key, kb.numpad8Key, "8");
             CheckNumberInput(kb.digit9Key, kb.numpad9Key, "9");
 
-            // 엔터 키 (이동)
             if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)
             {
                 OnElevatorGo();
             }
-
-            // 백스페이스 (지우기)
             if (kb.backspaceKey.wasPressedThisFrame)
             {
                 OnElevatorClear();
             }
-
-            // ESC (닫기)
             if (kb.escapeKey.wasPressedThisFrame)
             {
                 CloseAllPanels();
@@ -104,7 +116,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // 입력 헬퍼 함수
     private void CheckNumberInput(KeyControl mainKey, KeyControl numpadKey, string value)
     {
         if (mainKey.wasPressedThisFrame || numpadKey.wasPressedThisFrame)
@@ -122,12 +133,10 @@ public class UIManager : MonoBehaviour
         if (playerNameText != null) playerNameText.text = state.currentPlayerId;
         if (attemptsText != null) attemptsText.text = state.attemptsLeft.ToString();
 
-        // 퀴즈 텍스트 업데이트
         if (quizRiddleText == null) return;
 
         int currentFloor = state.currentFloor;
         if (state.gameFloors == null || state.gameFloors.Count == 0) return;
-
         // 데이터 안전 검사
         if (currentFloor < 1 || currentFloor > state.gameFloors.Count) return;
 
@@ -160,7 +169,20 @@ public class UIManager : MonoBehaviour
         if (submitButton != null) submitButton.gameObject.SetActive(canSubmit);
     }
 
-    // --- 패널 열기 ---
+    public void ShowQuizPanel()
+    {
+        if (quizPanel != null)
+        {
+            quizPanel.SetActive(true);
+            if (memoPanel != null) memoPanel.SetActive(false);
+            if (rulesPanel != null) rulesPanel.SetActive(false);
+            if (elevatorPanel != null) elevatorPanel.SetActive(false);
+
+            UpdateUI();
+            SetGameMode(true);
+        }
+    }
+
     public void ShowMemoPanel()
     {
         if (memoPanel != null)
@@ -177,15 +199,10 @@ public class UIManager : MonoBehaviour
         {
             rulesPanel.SetActive(true);
             SetGameMode(true);
-
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
-
             ScrollRect scrollRect = rulesPanel.GetComponentInChildren<ScrollRect>();
-            if (scrollRect != null)
-            {
-                scrollRect.verticalNormalizedPosition = 1f;
-            }
+            if (scrollRect != null) scrollRect.verticalNormalizedPosition = 1f;
         }
     }
 
@@ -200,7 +217,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // --- 패널 닫기 ---
     public void CloseAllPanels()
     {
         if (memoPanel != null) memoPanel.SetActive(false);
@@ -219,7 +235,6 @@ public class UIManager : MonoBehaviour
         if (eventSystem != null) eventSystem.SetActive(isUI);
     }
 
-    // --- 엘리베이터 기능 ---
     public void OnElevatorNumpadPress(string digit)
     {
         if (currentElevatorInput.Length < 2)
@@ -235,14 +250,14 @@ public class UIManager : MonoBehaviour
         if (elevatorDisplay != null) elevatorDisplay.text = "";
     }
 
-    // ▼▼▼ [수정됨] 엘리베이터 이동 및 퀴즈 패널 자동 열기 로직 ▼▼▼
+    // ▼▼▼ [수정됨] 씬 이동 로직 적용 ▼▼▼
     public void OnElevatorGo()
     {
         if (GameManager.Instance == null) return;
 
         if (int.TryParse(currentElevatorInput, out int newFloor))
         {
-            // 1. 유효한 층인지 확인
+            // 1. 층 정보 업데이트
             int totalFloors = GameManager.Instance.gameState.gameFloors.Count;
             if (newFloor < 1 || newFloor > totalFloors)
             {
@@ -251,35 +266,20 @@ public class UIManager : MonoBehaviour
                 return;
             }
 
-            // 2. 층 이동 실행
             GameManager.Instance.ChangeFloor(newFloor);
+            CloseAllPanels();
 
-            // 3. 엘리베이터 패널 닫기
-            if (elevatorPanel != null) elevatorPanel.SetActive(false);
-
-            // 4. 도착한 층에 따라 퀴즈 패널 열기 결정
-            bool isLobbyOrRest = newFloor == 1 || newFloor == 7;
-            bool isCleared = GameManager.Instance.gameState.IsFloorCleared(newFloor);
-
-            // 퀴즈를 풀어야 하는 층이라면 (로비X, 휴식X, 클리어X)
-            if (!isLobbyOrRest && !isCleared)
+            // 2. 씬 이동 결정
+            if (newFloor == 1)
             {
-                if (quizPanel != null)
-                {
-                    quizPanel.SetActive(true); // 퀴즈 창 열기!
-
-                    // 다른 패널들은 확실히 닫기
-                    if (memoPanel != null) memoPanel.SetActive(false);
-                    if (rulesPanel != null) rulesPanel.SetActive(false);
-
-                    UpdateUI(); // 텍스트(문제) 갱신
-                    SetGameMode(true); // 마우스 커서 사용 모드 유지
-                }
+                // 1층으로 가면 로비(GameScene)로 이동
+                SceneManager.LoadScene("GameScene");
             }
             else
             {
-                // 안전한 층이면 그냥 창 닫고 게임 진행
-                CloseAllPanels();
+                // 2층 이상이면 퀴즈 방(FloorScene)으로 이동
+                // *주의* Build Settings에 "FloorScene"이 추가되어 있어야 함
+                SceneManager.LoadScene("FloorScene");
             }
         }
         else
@@ -288,9 +288,8 @@ public class UIManager : MonoBehaviour
             OnElevatorClear();
         }
     }
-    // ▲▲▲ [수정 완료] ▲▲▲
+    // ▲▲▲
 
-    // --- 기타 기능 ---
     public void OnSubmitAnswerButton()
     {
         if (GameManager.Instance == null || answerInput == null) return;

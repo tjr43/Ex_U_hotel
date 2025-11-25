@@ -8,6 +8,7 @@ TagManager:
   - CinemachineTarget
   - Rule
   - Memo
+  - Quiz
   layers:
   - Default
   - TransparentFX

@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-using UnityEngine.InputSystem; // ⭐ 필수 추가: New Input System
+using UnityEngine.InputSystem; // 필수
 using TMPro;
 
 public class PlayerInteraction : MonoBehaviour
@@ -34,8 +34,6 @@ public class PlayerInteraction : MonoBehaviour
         {
             string tag = hit.collider.tag;
 
-            // ▼▼▼ [수정] Input.GetKeyDown -> Keyboard.current.fKey.wasPressedThisFrame ▼▼▼
-
             if (tag == "Memo")
             {
                 ShowMessage("F를 눌러 [메모] 읽기");
@@ -54,11 +52,18 @@ public class PlayerInteraction : MonoBehaviour
                 if (Keyboard.current.fKey.wasPressedThisFrame && UIManager.Instance != null)
                     UIManager.Instance.ShowElevatorPanel();
             }
+            // ▼▼▼ [추가] 퀴즈 단말기 상호작용 ▼▼▼
+            else if (tag == "Quiz")
+            {
+                ShowMessage("F를 눌러 [퀴즈] 풀기");
+                if (Keyboard.current.fKey.wasPressedThisFrame && UIManager.Instance != null)
+                    UIManager.Instance.ShowQuizPanel();
+            }
+            // ▲▲▲
             else
             {
                 HideMessage();
             }
-            // ▲▲▲ [수정 완료] ▲▲▲
         }
         else
         {
