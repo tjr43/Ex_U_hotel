@@ -14,8 +14,10 @@ public class GameManager : MonoBehaviour
     private string memoFilePath;
 
     // --- 2. 초기화 (Awake) ---
-    private void Awake() {
-        if (Instance != null && Instance != this) {
+    private void Awake()
+    {
+        if (Instance != null && Instance != this)
+        {
             Destroy(gameObject);
             return;
         }
@@ -27,93 +29,156 @@ public class GameManager : MonoBehaviour
     }
 
     // --- 3. StartScene에서 호출될 함수 ---
-    public void StartGame(string playerName) {
+    public void StartGame(string playerName)
+    {
         Debug.Log($"StartGame 호출됨. 플레이어 이름: {playerName}");
-        if (gameState == null) {
-            InitializeNewGame();
-        }
-        if (gameState != null) {
+
+        // 항상 새로운 게임 상태로 초기화
+        InitializeNewGame();
+
+        if (gameState != null)
+        {
             gameState.currentPlayerId = playerName;
             Debug.Log($"gameState.currentPlayerId가 {gameState.currentPlayerId}(으)로 설정됨");
-        } else {
-            Debug.LogError("gameState가 null입니다! InitializeNewGame()이 실패했습니다.");
         }
+
         SceneManager.LoadScene("GameScene");
     }
 
-    // StartGame의 '도우미 함수'
-    private void InitializeNewGame() {
+    // [수정됨] 초기화 함수: 빈 리스트가 아니라 실제 퀴즈 데이터를 채워넣습니다.
+    private void InitializeNewGame()
+    {
         Debug.Log("InitializeNewGame() 호출됨. 새 게임 상태를 생성합니다.");
 
-        // DataModels.cs에 추가한 생성자를 올바르게 호출
+        // 1. GameDataInitializer를 통해 30개 층 데이터를 먼저 생성
+        GameState initialState = GameDataInitializer.createInitialState();
+
+        // 2. 생성된 데이터를 기반으로 GameState 설정
         gameState = new GameState(
-            1,                  // currentFloor
-            "Player",           // currentPlayerId (StartGame에서 덮어쓸 예정)
-            new List<Floor>(),  // gameFloors (GameScene에서 로드할 예정)
+            1,                  // currentFloor (1층 시작)
+            "Player",           // currentPlayerId
+            initialState.gameFloors, // [중요] 30개 층 데이터 연결!
             10                  // attemptsLeft
         );
-        Debug.Log("새 GameState 객체 생성 및 초기화 완료.");
+
+        Debug.Log($"새 GameState 생성 완료. 총 층수: {gameState.gameFloors.Count}");
     }
 
-    // --- 4. GameScene에서 사용될 기존 함수들 ---
+    // --- 4. GameScene에서 사용될 함수들 ---
 
-    public GameState LoadGameOrCreateNew() {
-        if (File.Exists(saveFilePath)) {
-            return LoadGameState();
-        } else {
-            if (gameState == null) {
-                Debug.LogError("GameScene이 시작되었지만 gameState가 null입니다. StartGame부터 다시 시작합니다.");
-                InitializeNewGame(); // 비상시 fallback
-            }
-            // GameDataInitializer를 사용해 층 정보 로드 (GameScene에만 필요)
-            if (gameState.gameFloors == null || gameState.gameFloors.Count <= 1) {
-                // GameDataInitializer.cs의 createInitialState()를 호출합니다.
-                // 이 함수는 30개의 층 정보를 생성합니다.
-                // ※ GameDataInitializer.cs가 static이 아니면 new()가 필요할 수 있습니다.
-                // ※ 'createInitialState' 이름이 다르면 해당 이름으로 수정해야 합니다.
-
-                // GameDataInitializer.cs의 함수가 static 'createInitialState'라고 가정합니다.
-                GameState initialState = GameDataInitializer.createInitialState();
-                gameState.gameFloors = initialState.gameFloors;
-                gameState.attemptsLeft = initialState.attemptsLeft; // (선택사항) 시도 횟수도 여기서 가져옴
-                Debug.Log("GameDataInitializer로부터 층 정보를 로드했습니다.");
-            }
-            return gameState;
+    public void LoadGameOrCreateNew()
+    {
+        if (File.Exists(saveFilePath))
+        {
+            LoadGameState();
+        }
+        // 파일이 없거나 로드 실패 시, 이미 StartGame에서 초기화된 gameState를 사용
+        if (gameState == null || gameState.gameFloors == null || gameState.gameFloors.Count == 0)
+        {
+            Debug.LogWarning("저장된 파일이 없거나 데이터가 비어있어 새로 초기화합니다.");
+            InitializeNewGame();
         }
     }
 
-    public GameState LoadGameState() {
-        if (File.Exists(saveFilePath)) {
+    public void LoadGameState()
+    {
+        if (File.Exists(saveFilePath))
+        {
             string json = File.ReadAllText(saveFilePath);
             gameState = JsonUtility.FromJson<GameState>(json);
-            return gameState;
+
+            // 로드했는데 층 데이터가 비어있으면 다시 채움 (안전장치)
+            if (gameState.gameFloors == null || gameState.gameFloors.Count == 0)
+            {
+                GameState initialState = GameDataInitializer.createInitialState();
+                gameState.gameFloors = initialState.gameFloors;
+            }
         }
-        return null;
     }
 
-    public void SubmitAnswer(string answer) {
+    public void SubmitAnswer(string answer)
+    {
         if (gameState == null) return;
         Debug.Log("답변 제출: " + answer);
-        // ... (퀴즈 정답 로직) ...
-        // 예: if (answer == "정답") { gameState.clearedFloors.Add(gameState.currentFloor); }
+
+        int currentFloorIdx = gameState.currentFloor - 1;
+        if (currentFloorIdx < 0 || currentFloorIdx >= gameState.gameFloors.Count) return;
+
+        // 정답 체크 로직
+        Floor floorData = gameState.gameFloors[currentFloorIdx];
+        if (floorData.traps != null && floorData.traps.Count > 0)
+        {
+            Trap trap = floorData.traps[0];
+            if (answer.Trim() == trap.answer)
+            {
+                Debug.Log("정답입니다!");
+
+                // 클리어 목록에 추가
+                if (!gameState.clearedFloors.Contains(gameState.currentFloor))
+                {
+                    gameState.clearedFloors.Add(gameState.currentFloor);
+                }
+
+                // UI 갱신 요청
+                if (UIManager.Instance != null)
+                {
+                    UIManager.Instance.UpdateUI();
+                    UIManager.Instance.CloseAllPanels(); // 정답 맞히면 창 닫기
+                    UIManager.Instance.ShowInteractionMessage("정답입니다! 다음 층으로 이동하세요.");
+                }
+                SaveGame();
+            }
+            else
+            {
+                Debug.Log("오답입니다.");
+                if (UIManager.Instance != null)
+                {
+                    UIManager.Instance.ShowInteractionMessage("오답입니다.");
+                }
+                gameState.attemptsLeft--; // 기회 차감 등
+            }
+        }
     }
 
-    public void ChangeFloor(int floorNumber) {
+    public void ChangeFloor(int floorNumber)
+    {
         if (gameState == null) return;
-        Debug.Log("층 이동: " + floorNumber);
-        // ... (층 이동 로직) ...
-        // 예: gameState.currentFloor = floorNumber;
+
+        int totalFloors = gameState.gameFloors.Count;
+
+        // 1. 없는 층 체크
+        if (floorNumber < 1 || floorNumber > totalFloors)
+        {
+            if (UIManager.Instance != null)
+            {
+                UIManager.Instance.ShowInteractionMessage("존재하지 않는 층입니다.");
+            }
+            return;
+        }
+
+        // 2. 정상 이동
+        gameState.currentFloor = floorNumber;
+        Debug.Log($"{floorNumber}층으로 이동했습니다.");
+
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.UpdateUI();
+            UIManager.Instance.ShowInteractionMessage($"{floorNumber}층에 도착했습니다.");
+        }
+        SaveGame();
     }
 
-    public void SaveGame() {
+    public void SaveGame()
+    {
         if (gameState == null) return;
         string json = JsonUtility.ToJson(gameState, true);
         File.WriteAllText(saveFilePath, json);
     }
 
-    public List<PlayerRecord> LoadMemos() {
-        // (참고: UIManager는 gameState.playerHistory에서 직접 로드하므로, 이 함수는 현재 사용되지 않을 수 있습니다)
-        if (File.Exists(memoFilePath)) {
+    public List<PlayerRecord> LoadMemos()
+    {
+        if (File.Exists(memoFilePath))
+        {
             string json = File.ReadAllText(memoFilePath);
             MemosWrapper wrapper = JsonUtility.FromJson<MemosWrapper>(json) ?? new MemosWrapper();
             return wrapper.memos;
@@ -121,38 +186,34 @@ public class GameManager : MonoBehaviour
         return new List<PlayerRecord>();
     }
 
-    // ▼▼▼ [오류 수정] 비어있던 함수 내용 채우기 ▼▼▼
-    public void SaveMemoAndExit(string memo, string status) {
+    public void SaveMemoAndExit(string memo, string status)
+    {
         if (gameState == null) return;
 
-        // 1. 현재 플레이어의 기록(메모) 생성
-        PlayerRecord record = new PlayerRecord {
+        PlayerRecord record = new PlayerRecord
+        {
             playerId = gameState.currentPlayerId,
-            status = status, // "success" or "fail"
+            status = status,
             memo = memo,
             timestamp = System.DateTime.Now.ToString()
         };
 
-        // 2. gameState의 playerHistory에 이 기록 추가
-        if (gameState.playerHistory == null) {
+        if (gameState.playerHistory == null)
+        {
             gameState.playerHistory = new List<PlayerRecord>();
         }
         gameState.playerHistory.Add(record);
 
-        // 3. (선택사항) 메모를 별도 파일로도 저장 (LoadMemos 함수와 연동 시)
         List<PlayerRecord> allMemos = LoadMemos();
         allMemos.Add(record);
         MemosWrapper wrapper = new MemosWrapper { memos = allMemos };
         string json = JsonUtility.ToJson(wrapper, true);
         File.WriteAllText(memoFilePath, json);
 
-        // 4. 게임 저장 및 씬 이동
-        SaveGame(); // 현재 gameState (history 포함)를 저장
+        SaveGame();
         SceneManager.LoadScene("GoodbyeScene");
     }
-    // ▲▲▲ [함수 내용 채우기 완료] ▲▲▲
 
-    // LoadMemos를 위한 Helper Wrapper 클래스
     [System.Serializable]
     private class MemosWrapper
     {

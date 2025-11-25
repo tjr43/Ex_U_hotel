@@ -1,12 +1,13 @@
-using UnityEngine;
+ï»¿using UnityEngine;
+using UnityEngine.InputSystem; // â­ í•„ìˆ˜ ì¶”ê°€
 
 public class ElevatorTrigger : MonoBehaviour
 {
-    [Header("¼³Á¤")]
-    public float detectionRadius = 5.0f; // °¨Áö °Å¸®
+    [Header("ì„¤ì •")]
+    public float detectionRadius = 5.0f;
 
-    [Header("3D ÅØ½ºÆ® ¿¬°á")]
-    public GameObject interactionText3D; // "Press F" 3D ÅØ½ºÆ® ¿ÀºêÁ§Æ®
+    [Header("3D í…ìŠ¤íŠ¸ ì—°ê²°")]
+    public GameObject interactionText3D;
 
     private Transform playerTransform;
     private bool isPlayerNear = false;
@@ -30,22 +31,18 @@ public class ElevatorTrigger : MonoBehaviour
 
         if (distance <= detectionRadius)
         {
-            // --- ¹üÀ§ ¾È ---
             if (!isPlayerNear)
             {
                 isPlayerNear = true;
-                // 3D ÅØ½ºÆ® ÄÑ±â
                 if (interactionText3D != null) interactionText3D.SetActive(true);
-                // ±âÁ¸ UI ¸Ş½ÃÁö ¼û±è
                 if (UIManager.Instance != null) UIManager.Instance.HideInteractionMessage();
             }
 
-            // FÅ° ÀÔ·Â ½Ã ¿¤¸®º£ÀÌÅÍ ÆĞ³Î ¿­±â
-            if (Input.GetKeyDown(KeyCode.F))
+            // â–¼â–¼â–¼ [ìˆ˜ì •] New Input System â–¼â–¼â–¼
+            if (Keyboard.current.fKey.wasPressedThisFrame)
             {
                 if (UIManager.Instance != null)
                 {
-                    // ÀÌ¹Ì ¿­·ÁÀÖÀ¸¸é ´İ°í, ´İÇôÀÖÀ¸¸é ¿±´Ï´Ù
                     if (UIManager.Instance.elevatorPanel.activeSelf)
                     {
                         UIManager.Instance.CloseAllPanels();
@@ -53,21 +50,20 @@ public class ElevatorTrigger : MonoBehaviour
                     }
                     else
                     {
-                        UIManager.Instance.ShowElevatorPanel(); // ¿¤¸®º£ÀÌÅÍ ÆĞ³Î ¿­±â!
+                        UIManager.Instance.ShowElevatorPanel();
                         if (interactionText3D != null) interactionText3D.SetActive(false);
                     }
                 }
             }
+            // â–²â–²â–²
         }
         else
         {
-            // --- ¹üÀ§ ¹Û ---
             if (isPlayerNear)
             {
                 isPlayerNear = false;
                 if (interactionText3D != null) interactionText3D.SetActive(false);
 
-                // ¸Ö¾îÁö¸é ÆĞ³Î ´İ±â
                 if (UIManager.Instance != null && UIManager.Instance.elevatorPanel.activeSelf)
                 {
                     UIManager.Instance.CloseAllPanels();

@@ -1,4 +1,5 @@
-using UnityEngine;
+ï»¿using UnityEngine;
+using UnityEngine.InputSystem; // â­ í•„ìˆ˜ ì¶”ê°€: New Input System
 using TMPro;
 
 public class PlayerInteraction : MonoBehaviour
@@ -33,29 +34,31 @@ public class PlayerInteraction : MonoBehaviour
         {
             string tag = hit.collider.tag;
 
+            // â–¼â–¼â–¼ [ìˆ˜ì •] Input.GetKeyDown -> Keyboard.current.fKey.wasPressedThisFrame â–¼â–¼â–¼
+
             if (tag == "Memo")
             {
-                ShowMessage("F¸¦ ´­·¯ [¸Ş¸ğ] ÀĞ±â");
-                // ÇÔ¼ö ÀÌ¸§ÀÌ ShowMemoPanel·Î ÅëÀÏµÇ¾ú½À´Ï´Ù.
-                if (Input.GetKeyDown(KeyCode.F) && UIManager.Instance != null)
+                ShowMessage("Fë¥¼ ëˆŒëŸ¬ [ë©”ëª¨] ì½ê¸°");
+                if (Keyboard.current.fKey.wasPressedThisFrame && UIManager.Instance != null)
                     UIManager.Instance.ShowMemoPanel();
             }
             else if (tag == "Rule")
             {
-                ShowMessage("F¸¦ ´­·¯ [±ÔÄ¢] È®ÀÎ");
-                if (Input.GetKeyDown(KeyCode.F) && UIManager.Instance != null)
+                ShowMessage("Fë¥¼ ëˆŒëŸ¬ [ê·œì¹™] í™•ì¸");
+                if (Keyboard.current.fKey.wasPressedThisFrame && UIManager.Instance != null)
                     UIManager.Instance.ShowRulePanel();
             }
             else if (tag == "Elevator")
             {
-                ShowMessage("F¸¦ ´­·¯ [Å»Ãâ] ÇÏ±â");
-                if (Input.GetKeyDown(KeyCode.F) && UIManager.Instance != null)
+                ShowMessage("Fë¥¼ ëˆŒëŸ¬ [íƒˆì¶œ] í•˜ê¸°");
+                if (Keyboard.current.fKey.wasPressedThisFrame && UIManager.Instance != null)
                     UIManager.Instance.ShowElevatorPanel();
             }
             else
             {
                 HideMessage();
             }
+            // â–²â–²â–² [ìˆ˜ì • ì™„ë£Œ] â–²â–²â–²
         }
         else
         {

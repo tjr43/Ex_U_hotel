@@ -1,61 +1,79 @@
-using UnityEngine;
+ï»¿using UnityEngine;
+using UnityEngine.InputSystem; // â­ í•„ìˆ˜ ì¶”ê°€
 
 public class rulesTrigger : MonoBehaviour
 {
-    [Header("¼³Á¤")]
+    [Header("ì„¤ì •")]
     public float detectionRadius = 5.0f;
 
-    [Header("3D ÅØ½ºÆ® ¿¬°á (ÇÊ¼ö)")]
-    public GameObject interactionText3D; // ¿©±â¿¡ 3D Text ¿ÀºêÁ§Æ®¸¦ ³ÖÀ¸¼¼¿ä
+    [Header("3D í…ìŠ¤íŠ¸ ì—°ê²° (í•„ìˆ˜)")]
+    public GameObject interactionText3D;
 
     private Transform playerTransform;
     private bool isPlayerNear = false;
 
-    private void Start() {
+    private void Start()
+    {
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null) playerTransform = player.transform;
 
-        if (interactionText3D != null) {
+        if (interactionText3D != null)
+        {
             interactionText3D.SetActive(false);
         }
     }
 
-    private void Update() {
+    private void Update()
+    {
         if (playerTransform == null) return;
 
         float distance = Vector3.Distance(transform.position, playerTransform.position);
 
-        if (distance <= detectionRadius) {
-            if (!isPlayerNear) {
+        if (distance <= detectionRadius)
+        {
+            if (!isPlayerNear)
+            {
                 isPlayerNear = true;
                 if (interactionText3D != null) interactionText3D.SetActive(true);
                 if (UIManager.Instance != null) UIManager.Instance.HideInteractionMessage();
             }
 
-            if (Input.GetKeyDown(KeyCode.F)) {
-                if (UIManager.Instance != null) {
-                    if (UIManager.Instance.rulesPanel.activeSelf) {
+            // â–¼â–¼â–¼ [ìˆ˜ì •] New Input System â–¼â–¼â–¼
+            if (Keyboard.current.fKey.wasPressedThisFrame)
+            {
+                if (UIManager.Instance != null)
+                {
+                    if (UIManager.Instance.rulesPanel.activeSelf)
+                    {
                         UIManager.Instance.CloseAllPanels();
                         if (interactionText3D != null) interactionText3D.SetActive(true);
-                    } else {
+                    }
+                    else
+                    {
                         UIManager.Instance.ShowRulePanel();
                         if (interactionText3D != null) interactionText3D.SetActive(false);
                     }
                 }
             }
-        } else {
-            if (isPlayerNear) {
+            // â–²â–²â–²
+        }
+        else
+        {
+            if (isPlayerNear)
+            {
                 isPlayerNear = false;
                 if (interactionText3D != null) interactionText3D.SetActive(false);
 
-                if (UIManager.Instance != null && UIManager.Instance.rulesPanel.activeSelf) {
+                if (UIManager.Instance != null && UIManager.Instance.rulesPanel.activeSelf)
+                {
                     UIManager.Instance.CloseAllPanels();
                 }
             }
         }
     }
 
-    private void OnDrawGizmosSelected() {
+    private void OnDrawGizmosSelected()
+    {
         Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(transform.position, detectionRadius);
     }

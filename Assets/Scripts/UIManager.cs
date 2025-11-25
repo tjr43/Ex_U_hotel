@@ -1,7 +1,9 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine.UI;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.Controls; // â­ KeyControl ì‚¬ìš©ì„ ìœ„í•œ í•„ìˆ˜ ë„¤ì„ìŠ¤í˜ì´ìŠ¤
 
 public class UIManager : MonoBehaviour
 {
@@ -56,47 +58,60 @@ public class UIManager : MonoBehaviour
         {
             UpdateUI();
         }
-        CloseAllPanels(); // ½ÃÀÛÇÒ ¶§ ¸ğµç ÆĞ³Î ¼û±è
+        CloseAllPanels(); // ì‹œì‘í•  ë•Œ ëª¨ë“  íŒ¨ë„ ìˆ¨ê¹€
 
         if (elevatorDisplay != null) elevatorDisplay.text = "";
         currentElevatorInput = "";
     }
 
-    // ¡å¡å¡å [»õ·Î Ãß°¡µÈ ºÎºĞ: Å°º¸µå ÀÔ·Â °¨Áö] ¡å¡å¡å
     private void Update()
     {
-        // ¿¤¸®º£ÀÌÅÍ ÆĞ³ÎÀÌ ÄÑÁ® ÀÖÀ» ¶§¸¸ ÀÛµ¿
+        // ì—˜ë¦¬ë² ì´í„° íŒ¨ë„ì´ ì¼œì ¸ ìˆì„ ë•Œë§Œ ì‘ë™
         if (elevatorPanel != null && elevatorPanel.activeSelf)
         {
-            // ¼ıÀÚ Å° (0~9) ÀÔ·Â °¨Áö (¾ËÆÄºª À§ ¼ıÀÚÅ° & ¿À¸¥ÂÊ ³ÑÆĞµå ¸ğµÎ Áö¿ø)
-            for (int i = 0; i <= 9; i++)
-            {
-                if (Input.GetKeyDown(KeyCode.Alpha0 + i) || Input.GetKeyDown(KeyCode.Keypad0 + i))
-                {
-                    OnElevatorNumpadPress(i.ToString());
-                }
-            }
+            var kb = Keyboard.current;
+            if (kb == null) return;
 
-            // ¿£ÅÍ Å° (ÀÌµ¿)
-            if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.KeypadEnter))
+            // ìˆ«ì í‚¤ (0~9) ì…ë ¥ ê°ì§€ (ìƒë‹¨ ìˆ«ìí‚¤ & í‚¤íŒ¨ë“œ ëª¨ë‘ ì§€ì›)
+            CheckNumberInput(kb.digit0Key, kb.numpad0Key, "0");
+            CheckNumberInput(kb.digit1Key, kb.numpad1Key, "1");
+            CheckNumberInput(kb.digit2Key, kb.numpad2Key, "2");
+            CheckNumberInput(kb.digit3Key, kb.numpad3Key, "3");
+            CheckNumberInput(kb.digit4Key, kb.numpad4Key, "4");
+            CheckNumberInput(kb.digit5Key, kb.numpad5Key, "5");
+            CheckNumberInput(kb.digit6Key, kb.numpad6Key, "6");
+            CheckNumberInput(kb.digit7Key, kb.numpad7Key, "7");
+            CheckNumberInput(kb.digit8Key, kb.numpad8Key, "8");
+            CheckNumberInput(kb.digit9Key, kb.numpad9Key, "9");
+
+            // ì—”í„° í‚¤ (ì´ë™)
+            if (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame)
             {
                 OnElevatorGo();
             }
 
-            // ¹é½ºÆäÀÌ½º (Áö¿ì±â)
-            if (Input.GetKeyDown(KeyCode.Backspace))
+            // ë°±ìŠ¤í˜ì´ìŠ¤ (ì§€ìš°ê¸°)
+            if (kb.backspaceKey.wasPressedThisFrame)
             {
                 OnElevatorClear();
             }
 
-            // ESC (´İ±â)
-            if (Input.GetKeyDown(KeyCode.Escape))
+            // ESC (ë‹«ê¸°)
+            if (kb.escapeKey.wasPressedThisFrame)
             {
                 CloseAllPanels();
             }
         }
     }
-    // ¡ã¡ã¡ã [Ãß°¡ ³¡] ¡ã¡ã¡ã
+
+    // ì…ë ¥ í—¬í¼ í•¨ìˆ˜
+    private void CheckNumberInput(KeyControl mainKey, KeyControl numpadKey, string value)
+    {
+        if (mainKey.wasPressedThisFrame || numpadKey.wasPressedThisFrame)
+        {
+            OnElevatorNumpadPress(value);
+        }
+    }
 
     public void UpdateUI()
     {
@@ -107,13 +122,13 @@ public class UIManager : MonoBehaviour
         if (playerNameText != null) playerNameText.text = state.currentPlayerId;
         if (attemptsText != null) attemptsText.text = state.attemptsLeft.ToString();
 
-        // GameScene ÄûÁî ·ÎÁ÷
+        // í€´ì¦ˆ í…ìŠ¤íŠ¸ ì—…ë°ì´íŠ¸
         if (quizRiddleText == null) return;
 
         int currentFloor = state.currentFloor;
         if (state.gameFloors == null || state.gameFloors.Count == 0) return;
 
-        // µ¥ÀÌÅÍ ¾ÈÀü °Ë»ç
+        // ë°ì´í„° ì•ˆì „ ê²€ì‚¬
         if (currentFloor < 1 || currentFloor > state.gameFloors.Count) return;
 
         Floor currentFloorData = state.gameFloors[currentFloor - 1];
@@ -122,32 +137,30 @@ public class UIManager : MonoBehaviour
 
         if (isLobbyOrRest)
         {
-            if (quizDescriptionText != null) quizDescriptionText.text = currentFloor == 1 ? "1Ãş ·Îºñ" : "7Ãş ÈŞ½Ä °ø°£";
-            if (quizRiddleText != null) quizRiddleText.text = currentFloor == 1 ? "´ÙÀ½ ÃşÀ¸·Î ÀÌµ¿ÇÏ¼¼¿ä." : "Àá½Ã ½¬¾î°¡¼¼¿ä.";
+            if (quizDescriptionText != null) quizDescriptionText.text = currentFloor == 1 ? "1ì¸µ ë¡œë¹„" : "7ì¸µ íœ´ì‹ ê³µê°„";
+            if (quizRiddleText != null) quizRiddleText.text = currentFloor == 1 ? "ë‹¤ìŒ ì¸µìœ¼ë¡œ ì´ë™í•˜ì„¸ìš”." : "ì ì‹œ ì‰¬ì–´ê°€ì„¸ìš”.";
         }
         else if (isCleared)
         {
-            if (quizDescriptionText != null) quizDescriptionText.text = $"{currentFloor}Ãş (Å¬¸®¾î)";
-            if (quizRiddleText != null) quizRiddleText.text = "ÀÌ¹Ì Å¬¸®¾îÇÑ ÃşÀÔ´Ï´Ù.";
+            if (quizDescriptionText != null) quizDescriptionText.text = $"{currentFloor}ì¸µ (í´ë¦¬ì–´)";
+            if (quizRiddleText != null) quizRiddleText.text = "ì´ë¯¸ í´ë¦¬ì–´í•œ ì¸µì…ë‹ˆë‹¤.";
         }
         else
         {
             if (currentFloorData.traps != null && currentFloorData.traps.Count > 0)
             {
                 Trap trap = currentFloorData.traps[0];
-                if (quizDescriptionText != null) quizDescriptionText.text = $"--- {currentFloor}Ãş --- [¹æ¼Û] {trap.description}";
-                if (quizRiddleText != null) quizRiddleText.text = $"[¹®Á¦] {trap.riddle}";
+                if (quizDescriptionText != null) quizDescriptionText.text = $"--- {currentFloor}ì¸µ --- [ë°©ì†¡] {trap.description}";
+                if (quizRiddleText != null) quizRiddleText.text = $"[ë¬¸ì œ] {trap.riddle}";
             }
         }
 
         bool canSubmit = !isCleared && !isLobbyOrRest;
         if (answerInput != null) answerInput.gameObject.SetActive(canSubmit);
         if (submitButton != null) submitButton.gameObject.SetActive(canSubmit);
-
-        // [Áß¿ä] ¿©±â¿¡ elevatorPanel.SetActive ÄÚµå°¡ ¾ø¾î¾ß ÇÕ´Ï´Ù!
     }
 
-    // --- ÆĞ³Î ¿­±â (PlayerInteraction¿¡¼­ È£Ãâ) ---
+    // --- íŒ¨ë„ ì—´ê¸° ---
     public void ShowMemoPanel()
     {
         if (memoPanel != null)
@@ -164,6 +177,15 @@ public class UIManager : MonoBehaviour
         {
             rulesPanel.SetActive(true);
             SetGameMode(true);
+
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+
+            ScrollRect scrollRect = rulesPanel.GetComponentInChildren<ScrollRect>();
+            if (scrollRect != null)
+            {
+                scrollRect.verticalNormalizedPosition = 1f;
+            }
         }
     }
 
@@ -178,7 +200,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // --- ÆĞ³Î ´İ±â ---
+    // --- íŒ¨ë„ ë‹«ê¸° ---
     public void CloseAllPanels()
     {
         if (memoPanel != null) memoPanel.SetActive(false);
@@ -197,7 +219,7 @@ public class UIManager : MonoBehaviour
         if (eventSystem != null) eventSystem.SetActive(isUI);
     }
 
-    // --- ¿¤¸®º£ÀÌÅÍ ±â´É ---
+    // --- ì—˜ë¦¬ë² ì´í„° ê¸°ëŠ¥ ---
     public void OnElevatorNumpadPress(string digit)
     {
         if (currentElevatorInput.Length < 2)
@@ -213,22 +235,62 @@ public class UIManager : MonoBehaviour
         if (elevatorDisplay != null) elevatorDisplay.text = "";
     }
 
+    // â–¼â–¼â–¼ [ìˆ˜ì •ë¨] ì—˜ë¦¬ë² ì´í„° ì´ë™ ë° í€´ì¦ˆ íŒ¨ë„ ìë™ ì—´ê¸° ë¡œì§ â–¼â–¼â–¼
     public void OnElevatorGo()
     {
         if (GameManager.Instance == null) return;
+
         if (int.TryParse(currentElevatorInput, out int newFloor))
         {
+            // 1. ìœ íš¨í•œ ì¸µì¸ì§€ í™•ì¸
+            int totalFloors = GameManager.Instance.gameState.gameFloors.Count;
+            if (newFloor < 1 || newFloor > totalFloors)
+            {
+                ShowInteractionMessage("ì¡´ì¬í•˜ì§€ ì•ŠëŠ” ì¸µì…ë‹ˆë‹¤.");
+                OnElevatorClear();
+                return;
+            }
+
+            // 2. ì¸µ ì´ë™ ì‹¤í–‰
             GameManager.Instance.ChangeFloor(newFloor);
-            CloseAllPanels();
+
+            // 3. ì—˜ë¦¬ë² ì´í„° íŒ¨ë„ ë‹«ê¸°
+            if (elevatorPanel != null) elevatorPanel.SetActive(false);
+
+            // 4. ë„ì°©í•œ ì¸µì— ë”°ë¼ í€´ì¦ˆ íŒ¨ë„ ì—´ê¸° ê²°ì •
+            bool isLobbyOrRest = newFloor == 1 || newFloor == 7;
+            bool isCleared = GameManager.Instance.gameState.IsFloorCleared(newFloor);
+
+            // í€´ì¦ˆë¥¼ í’€ì–´ì•¼ í•˜ëŠ” ì¸µì´ë¼ë©´ (ë¡œë¹„X, íœ´ì‹X, í´ë¦¬ì–´X)
+            if (!isLobbyOrRest && !isCleared)
+            {
+                if (quizPanel != null)
+                {
+                    quizPanel.SetActive(true); // í€´ì¦ˆ ì°½ ì—´ê¸°!
+
+                    // ë‹¤ë¥¸ íŒ¨ë„ë“¤ì€ í™•ì‹¤íˆ ë‹«ê¸°
+                    if (memoPanel != null) memoPanel.SetActive(false);
+                    if (rulesPanel != null) rulesPanel.SetActive(false);
+
+                    UpdateUI(); // í…ìŠ¤íŠ¸(ë¬¸ì œ) ê°±ì‹ 
+                    SetGameMode(true); // ë§ˆìš°ìŠ¤ ì»¤ì„œ ì‚¬ìš© ëª¨ë“œ ìœ ì§€
+                }
+            }
+            else
+            {
+                // ì•ˆì „í•œ ì¸µì´ë©´ ê·¸ëƒ¥ ì°½ ë‹«ê³  ê²Œì„ ì§„í–‰
+                CloseAllPanels();
+            }
         }
         else
         {
-            ShowInteractionMessage("¿Ã¹Ù¸¥ ÃşÀ» ÀÔ·ÂÇÏ¼¼¿ä."); // ÀÓ½Ã·Î ¸Ş½ÃÁö Ç¥½Ã
+            ShowInteractionMessage("ì˜¬ë°”ë¥¸ ì¸µì„ ì…ë ¥í•˜ì„¸ìš”.");
             OnElevatorClear();
         }
     }
+    // â–²â–²â–² [ìˆ˜ì • ì™„ë£Œ] â–²â–²â–²
 
-    // --- ±âÅ¸ ±â´É ---
+    // --- ê¸°íƒ€ ê¸°ëŠ¥ ---
     public void OnSubmitAnswerButton()
     {
         if (GameManager.Instance == null || answerInput == null) return;
@@ -267,7 +329,6 @@ public class UIManager : MonoBehaviour
             }
             else if (texts.Length == 1)
             {
-                // ÅØ½ºÆ®°¡ ÇÏ³ª»ÓÀÎ °æ¿ì (´Ü¼ø ÅØ½ºÆ® ÇÁ¸®ÆÕÀÏ ¶§)
                 texts[0].text = $"{record.playerId}: {record.memo}";
             }
         }

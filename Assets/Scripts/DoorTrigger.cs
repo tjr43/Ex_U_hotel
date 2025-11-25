@@ -1,11 +1,12 @@
-using UnityEngine;
-using TMPro; // TextMeshPro Text¸¦ »ç¿ëÇÏ±â À§ÇØ ÇÊ¼öÀÔ´Ï´Ù.
+ï»¿using UnityEngine;
+using TMPro;
+using UnityEngine.InputSystem; // â­ í•„ìˆ˜ ì¶”ê°€
 
 public class DoorTrigger : MonoBehaviour
 {
     [Header("UI References")]
-    public GameObject nameInputPanel; // ÄÑ°í ²ø ÀÌ¸§ ÀÔ·ÂÃ¢ ÆĞ³Î
-    public GameObject interactionMessageObject; // "F Å°" ÅØ½ºÆ® ¿ÀºêÁ§Æ®
+    public GameObject nameInputPanel;
+    public GameObject interactionMessageObject;
 
     private TMP_Text interactionMessageText;
     private bool playerIsInsideTrigger = false;
@@ -18,51 +19,43 @@ public class DoorTrigger : MonoBehaviour
         }
         else
         {
-            Debug.LogError("DoorTrigger¿¡ interactionMessageObject°¡ ¿¬°áµÇÁö ¾Ê¾Ò½À´Ï´Ù!");
+            Debug.LogError("DoorTriggerì— interactionMessageObjectê°€ ì—°ê²°ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤!");
         }
     }
 
     private void Update()
     {
-        if (playerIsInsideTrigger && Input.GetKeyDown(KeyCode.F))
+        // â–¼â–¼â–¼ [ìˆ˜ì •] New Input System â–¼â–¼â–¼
+        if (playerIsInsideTrigger && Keyboard.current.fKey.wasPressedThisFrame)
         {
             ActivateDoor();
         }
+        // â–²â–²â–²
     }
 
-    // ¹®À» È°¼ºÈ­ (ÀÌ¸§ ÀÔ·ÂÃ¢ ¿­±â)
     private void ActivateDoor()
     {
         if (nameInputPanel != null)
         {
-            nameInputPanel.SetActive(true); // ÀÌ¸§ ÀÔ·ÂÃ¢ ÄÑ±â
+            nameInputPanel.SetActive(true);
         }
 
         if (interactionMessageText != null)
         {
-            interactionMessageText.text = ""; // »óÈ£ÀÛ¿ë ¸Ş½ÃÁö ¼û±â±â
+            interactionMessageText.text = "";
         }
 
-        // ¡å¡å¡å [¼öÁ¤µÈ ºÎºĞ!] ¡å¡å¡å
-        // ¸¶¿ì½º Ä¿¼­¸¦ Á÷Á¢ Á¦¾îÇÏ´Â ´ë½Å,
-        // TransitionManager¿¡°Ô "UI ¸ğµå"·Î ÀüÈ¯ÇÏ¶ó°í ¿äÃ»ÇÕ´Ï´Ù.
-        // (ÀÌ ÇÔ¼ö°¡ Ä¿¼­ Àá±İ ÇØÁ¦ + ÇÃ·¹ÀÌ¾î ¿òÁ÷ÀÓ Á¤Áö¸¦ ¸ğµÎ Ã³¸®ÇÕ´Ï´Ù.)
         if (TransitionManager.Instance != null)
         {
-            TransitionManager.Instance.SetUIMode(true); // true = UI ¸ğµå (¿òÁ÷ÀÓ Á¤Áö)
+            TransitionManager.Instance.SetUIMode(true);
         }
         else
         {
-            // TransitionManager°¡ ¾ø´Â ºñ»ó½Ã, Ä¿¼­¸¸ Àá±İ ÇØÁ¦
-            Debug.LogError("TransitionManager.Instance°¡ ¾ø½À´Ï´Ù!");
+            Debug.LogError("TransitionManager.Instanceê°€ ì—†ìŠµë‹ˆë‹¤!");
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
         }
-        // ¡ã¡ã¡ã [¼öÁ¤ ¿Ï·á] ¡ã¡ã¡ã
     }
-
-
-    // --- Æ®¸®°Å °¨Áö ---
 
     private void OnTriggerEnter(Collider other)
     {
@@ -71,7 +64,7 @@ public class DoorTrigger : MonoBehaviour
             playerIsInsideTrigger = true;
             if (interactionMessageText != null && nameInputPanel != null && nameInputPanel.activeSelf == false)
             {
-                interactionMessageText.text = "Session the F keys";
+                interactionMessageText.text = "Press F to Enter"; // í…ìŠ¤íŠ¸ ì•½ê°„ ìˆ˜ì •
             }
         }
     }
@@ -83,7 +76,7 @@ public class DoorTrigger : MonoBehaviour
             playerIsInsideTrigger = false;
             if (interactionMessageText != null)
             {
-                interactionMessageText.text = ""; // ¸Ş½ÃÁö Áö¿ì±â
+                interactionMessageText.text = "";
             }
         }
     }

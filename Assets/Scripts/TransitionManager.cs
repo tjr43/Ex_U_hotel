@@ -1,6 +1,7 @@
-using UnityEngine;
+ï»¿using UnityEngine;
 using StarterAssets;
 using UnityEngine.SceneManagement;
+using UnityEngine.InputSystem;
 
 public class TransitionManager : MonoBehaviour
 {
@@ -8,6 +9,7 @@ public class TransitionManager : MonoBehaviour
 
     private FirstPersonController movementScript;
     private StarterAssetsInputs inputScript;
+    private PlayerInput playerInput;
 
     private void Awake()
     {
@@ -18,80 +20,82 @@ public class TransitionManager : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
-
-        // ¾À ·Îµå ÀÌº¥Æ® ¿¬°á
         SceneManager.sceneLoaded += OnSceneLoaded;
-    }
-
-    // [Ãß°¡µÈ ºÎºĞ] °ÔÀÓ ½ÃÀÛ ½Ã °­Á¦·Î ÃÊ±âÈ­ ½ÇÇà
-    private void Start()
-    {
-        // ¿¡µğÅÍ¿¡¼­ Play¸¦ ´­·¶À» ¶§ ¹Ù·Î ÇöÀç ¾ÀÀÇ ÇÃ·¹ÀÌ¾î¸¦ Ã£µµ·Ï ÇÕ´Ï´Ù.
-        OnSceneLoaded(SceneManager.GetActiveScene(), LoadSceneMode.Single);
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        GameObject player = GameObject.FindWithTag("Player");
+        FindPlayerReferences(); // ì”¬ ë¡œë“œë  ë•Œ í”Œë ˆì´ì–´ ì°¾ê¸°
 
+        string currentSceneName = scene.name;
+        if (currentSceneName == "GameScene" || currentSceneName == "StartScene")
+        {
+            SetUIMode(false);
+        }
+        else
+        {
+            SetUIMode(true);
+        }
+    }
+
+    // í”Œë ˆì´ì–´ ì°¾ëŠ” í•¨ìˆ˜ ë¶„ë¦¬ (ëª» ì°¾ìœ¼ë©´ ë‹¤ì‹œ ì°¾ê¸° ìœ„í•¨)
+    private void FindPlayerReferences()
+    {
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
         {
             movementScript = player.GetComponent<FirstPersonController>();
             inputScript = player.GetComponent<StarterAssetsInputs>();
-            // Debug.Log("Player found in scene: " + scene.name);
+            playerInput = player.GetComponent<PlayerInput>();
+            Debug.Log("âœ… [TransitionManager] í”Œë ˆì´ì–´ ì œì–´ ìŠ¤í¬ë¦½íŠ¸ë¥¼ ì—°ê²°í–ˆìŠµë‹ˆë‹¤.");
         }
         else
         {
-            movementScript = null;
-            inputScript = null;
-        }
-
-        // ¾À ÀÌ¸§¿¡ µû¶ó ÃÊ±â ¸ğµå ¼³Á¤
-        string currentSceneName = scene.name;
-        if (currentSceneName == "GameScene" || currentSceneName == "StartScene")
-        {
-            SetUIMode(false); // ÀÌµ¿ °¡´É ¸ğµå·Î ½ÃÀÛ
-        }
-        else
-        {
-            SetUIMode(true); // UI ¸ğµå·Î ½ÃÀÛ
-        }
-    }
-
-    private void OnDestroy()
-    {
-        if (Instance == this)
-        {
-            SceneManager.sceneLoaded -= OnSceneLoaded;
+            Debug.LogWarning("âš ï¸ [TransitionManager] 'Player' íƒœê·¸ë¥¼ ê°€ì§„ ì˜¤ë¸Œì íŠ¸ë¥¼ ì°¾ì§€ ëª»í–ˆìŠµë‹ˆë‹¤.");
         }
     }
 
     public void SetUIMode(bool showUI)
     {
+        // ì•ˆì „ì¥ì¹˜: ë§Œì•½ í”Œë ˆì´ì–´ ì—°ê²°ì´ ëŠê²¨ìˆë‹¤ë©´ ë‹¤ì‹œ ì°¾ëŠ”ë‹¤.
+        if (playerInput == null || inputScript == null)
+        {
+            FindPlayerReferences();
+        }
+
+        // 1. ì…ë ¥ ì‹œìŠ¤í…œ ì°¨ë‹¨
+        if (playerInput != null)
+        {
+            // UIê°€ ì¼œì§€ë©´ ì•„ì˜ˆ ì…ë ¥ì„ êº¼ë²„ë¦¼ (í™”ë©´ íšŒì „ ë°©ì§€ í•µì‹¬)
+            playerInput.enabled = !showUI;
+        }
+
+        // 2. ì›€ì§ì„ ìŠ¤í¬ë¦½íŠ¸ ì œì–´
         if (movementScript != null)
         {
             movementScript.enabled = !showUI;
         }
 
-        // [Áß¿ä] ÀÔ·Â ½ºÅ©¸³Æ® Ã³¸®
+        // 3. ì…ë ¥ ê°’ ì´ˆê¸°í™”
         if (inputScript != null)
         {
-            // ÀÔ·ÂÀ» ²ô±â Àü¿¡ ±âÁ¸ ÀÔ·Â°ªÀ» 0À¸·Î ÃÊ±âÈ­ÇØ¾ß °è¼Ó °È´Â ¹ö±×°¡ ¾È »ı±è
             if (showUI)
             {
                 inputScript.move = Vector2.zero;
                 inputScript.look = Vector2.zero;
                 inputScript.jump = false;
                 inputScript.sprint = false;
+                inputScript.cursorInputForLook = false; // ì‹œì„  ì²˜ë¦¬ ë„ê¸°
+                inputScript.cursorLocked = false;
             }
-
-            // StarterAssetsInputs´Â ÀÔ·ÂÀ» ¹Ş¾Æ º¯¼ö¿¡ ÀúÀåÇÏ´Â ¿ªÇÒÀÌ¹Ç·Î 
-            // cursorInputForLook °°Àº º¯¼ö Á¦¾î°¡ ÇÊ¿äÇÒ ¼ö ÀÖÁö¸¸,
-            // º¸Åë enabled¸¦ ²ô°Å³ª cursorLocked¸¦ Çª´Â °ÍÀ¸·Î Ã³¸®ÇÕ´Ï´Ù.
-            inputScript.cursorInputForLook = !showUI;
-            inputScript.cursorLocked = !showUI;
+            else
+            {
+                inputScript.cursorInputForLook = true;
+                inputScript.cursorLocked = true;
+            }
         }
 
+        // 4. ë§ˆìš°ìŠ¤ ì»¤ì„œ ì„¤ì •
         if (showUI)
         {
             Cursor.lockState = CursorLockMode.None;
