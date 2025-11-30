@@ -384,5 +384,6 @@ public class UIManager : MonoBehaviour
 
         return false; // 둘 다 아니면 타자 치는 중 아님
     }
+
     // ▲▲▲
 }
