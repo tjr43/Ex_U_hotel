@@ -1,5 +1,5 @@
 ﻿using UnityEngine;
-using UnityEngine.SceneManagement; // 씬 이동을 위해 필수
+using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
@@ -57,31 +57,26 @@ public class UIManager : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.gameState != null)
         {
             UpdateUI();
-            CheckAutoPopup(); // 씬 시작 시 퀴즈 팝업 체크
+            CheckAutoPopup();
         }
 
-        // 시작할 때 기본적으로 패널들은 닫아둠 (퀴즈 층이면 CheckAutoPopup이 다시 켬)
         CloseAllPanels();
 
         if (elevatorDisplay != null) elevatorDisplay.text = "";
         currentElevatorInput = "";
     }
 
-    // ▼▼▼ [추가됨] 씬이 로드되자마자 "여기가 퀴즈 층인가?" 확인하는 함수 ▼▼▼
     private void CheckAutoPopup()
     {
         int floor = GameManager.Instance.gameState.currentFloor;
         bool isCleared = GameManager.Instance.gameState.IsFloorCleared(floor);
         bool isLobbyOrRest = (floor == 1 || floor == 7);
 
-        // 퀴즈 층이고, 아직 안 깼다면 -> 바로 퀴즈 패널 열기!
         if (!isLobbyOrRest && !isCleared)
         {
-            // 약간의 딜레이 후 띄우거나 바로 띄움
             ShowQuizPanel();
         }
     }
-    // ▲▲▲
 
     private void Update()
     {
@@ -124,20 +119,30 @@ public class UIManager : MonoBehaviour
         }
     }
 
+    // ▼▼▼ [수정됨] 한글 "목숨" 적용 및 텍스트 포맷 변경 ▼▼▼
     public void UpdateUI()
     {
         if (GameManager.Instance == null || GameManager.Instance.gameState == null) return;
 
         GameState state = GameManager.Instance.gameState;
 
-        if (playerNameText != null) playerNameText.text = state.currentPlayerId;
-        if (attemptsText != null) attemptsText.text = state.attemptsLeft.ToString();
+        // 1. HUD 업데이트 (이름: OOO    목숨: 2)
+        if (playerNameText != null)
+        {
+            // \n을 없애고 한 줄로 표시 (Inspector에서 Width를 800 이상으로 늘려야 안 잘림)
+            playerNameText.text = $"이름: <color=yellow>{state.currentPlayerId}</color>    목숨: <color=red>{state.attemptsLeft}</color>";
+        }
 
+        if (attemptsText != null)
+        {
+            attemptsText.text = state.attemptsLeft.ToString();
+        }
+
+        // 2. 퀴즈 패널 텍스트 업데이트
         if (quizRiddleText == null) return;
 
         int currentFloor = state.currentFloor;
         if (state.gameFloors == null || state.gameFloors.Count == 0) return;
-        // 데이터 안전 검사
         if (currentFloor < 1 || currentFloor > state.gameFloors.Count) return;
 
         Floor currentFloorData = state.gameFloors[currentFloor - 1];
@@ -168,6 +173,7 @@ public class UIManager : MonoBehaviour
         if (answerInput != null) answerInput.gameObject.SetActive(canSubmit);
         if (submitButton != null) submitButton.gameObject.SetActive(canSubmit);
     }
+    // ▲▲▲
 
     public void ShowQuizPanel()
     {
@@ -201,9 +207,21 @@ public class UIManager : MonoBehaviour
             SetGameMode(true);
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
+
+            // ▼▼▼ [핵심 수정] 스크롤 초기화 ▼▼▼
             ScrollRect scrollRect = rulesPanel.GetComponentInChildren<ScrollRect>();
-            if (scrollRect != null) scrollRect.verticalNormalizedPosition = 1f;
+            if (scrollRect != null)
+            {
+                StartCoroutine(ForceScrollToTop(scrollRect));
+            }
         }
+    }
+
+    // 스크롤 강제 초기화 코루틴
+    private System.Collections.IEnumerator ForceScrollToTop(ScrollRect scrollRect)
+    {
+        yield return new WaitForEndOfFrame();
+        scrollRect.verticalNormalizedPosition = 1f;
     }
 
     public void ShowElevatorPanel()
@@ -250,14 +268,13 @@ public class UIManager : MonoBehaviour
         if (elevatorDisplay != null) elevatorDisplay.text = "";
     }
 
-    // ▼▼▼ [수정됨] 씬 이동 로직 적용 ▼▼▼
+    // ▼▼▼ [수정됨] 이동 제한 & 씬 이동 로직 ▼▼▼
     public void OnElevatorGo()
     {
         if (GameManager.Instance == null) return;
 
         if (int.TryParse(currentElevatorInput, out int newFloor))
         {
-            // 1. 층 정보 업데이트
             int totalFloors = GameManager.Instance.gameState.gameFloors.Count;
             if (newFloor < 1 || newFloor > totalFloors)
             {
@@ -266,19 +283,28 @@ public class UIManager : MonoBehaviour
                 return;
             }
 
+            int currentFloor = GameManager.Instance.gameState.currentFloor;
+            bool isLobbyOrRest = (currentFloor == 1 || currentFloor == 7);
+            bool isCurrentCleared = GameManager.Instance.gameState.IsFloorCleared(currentFloor);
+
+            // 현재 층을 못 깼으면 이동 불가 (로비 제외)
+            if (!isLobbyOrRest && !isCurrentCleared)
+            {
+                ShowInteractionMessage($"현재 {currentFloor}층의 문제를 먼저 해결해야 합니다!");
+                OnElevatorClear();
+                return;
+            }
+
             GameManager.Instance.ChangeFloor(newFloor);
             CloseAllPanels();
 
-            // 2. 씬 이동 결정
+            // 씬 이동
             if (newFloor == 1)
             {
-                // 1층으로 가면 로비(GameScene)로 이동
                 SceneManager.LoadScene("GameScene");
             }
             else
             {
-                // 2층 이상이면 퀴즈 방(FloorScene)으로 이동
-                // *주의* Build Settings에 "FloorScene"이 추가되어 있어야 함
                 SceneManager.LoadScene("FloorScene");
             }
         }
@@ -346,4 +372,17 @@ public class UIManager : MonoBehaviour
     {
         if (messageText != null) messageText.gameObject.SetActive(false);
     }
+
+    // ▼▼▼ [추가됨] 입력 중인지 확인하는 함수 (창 닫힘 방지용) ▼▼▼
+    public bool IsTyping()
+    {
+        // 1. 답 입력창이 켜져 있고 & 포커스 되어 있거나
+        if (answerInput != null && answerInput.isFocused) return true;
+
+        // 2. 메모 입력창이 켜져 있고 & 포커스 되어 있다면
+        if (memoInputField != null && memoInputField.isFocused) return true;
+
+        return false; // 둘 다 아니면 타자 치는 중 아님
+    }
+    // ▲▲▲
 }

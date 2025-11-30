@@ -20,6 +20,12 @@ public class PlayerInteraction : MonoBehaviour
 
     private void Update()
     {
+        if (UIManager.Instance != null && UIManager.Instance.IsTyping())
+        {
+            return; // 아무것도 안 하고 함수 종료!
+        }
+        // ▲▲▲
+
         CheckInteraction();
     }
 

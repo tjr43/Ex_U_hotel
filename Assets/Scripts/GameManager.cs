@@ -33,35 +33,34 @@ public class GameManager : MonoBehaviour
     {
         Debug.Log($"StartGame 호출됨. 플레이어 이름: {playerName}");
 
-        // 항상 새로운 게임 상태로 초기화
         InitializeNewGame();
 
         if (gameState != null)
         {
             gameState.currentPlayerId = playerName;
-            Debug.Log($"gameState.currentPlayerId가 {gameState.currentPlayerId}(으)로 설정됨");
         }
 
         SceneManager.LoadScene("GameScene");
     }
 
-    // [수정됨] 초기화 함수: 빈 리스트가 아니라 실제 퀴즈 데이터를 채워넣습니다.
+    // 초기화 함수
     private void InitializeNewGame()
     {
-        Debug.Log("InitializeNewGame() 호출됨. 새 게임 상태를 생성합니다.");
+        Debug.Log("InitializeNewGame() 호출됨.");
 
-        // 1. GameDataInitializer를 통해 30개 층 데이터를 먼저 생성
+        // 30개 층 데이터 생성
         GameState initialState = GameDataInitializer.createInitialState();
 
-        // 2. 생성된 데이터를 기반으로 GameState 설정
+        // ▼▼▼ [수정 1] 목숨을 2개로 설정 ▼▼▼
         gameState = new GameState(
-            1,                  // currentFloor (1층 시작)
-            "Player",           // currentPlayerId
-            initialState.gameFloors, // [중요] 30개 층 데이터 연결!
-            10                  // attemptsLeft
+            1,
+            "Player",
+            initialState.gameFloors,
+            2                   // attemptsLeft: 2 (기회 2번)
         );
+        // ▲▲▲
 
-        Debug.Log($"새 GameState 생성 완료. 총 층수: {gameState.gameFloors.Count}");
+        Debug.Log("새 게임 상태 생성 완료 (목숨 2개)");
     }
 
     // --- 4. GameScene에서 사용될 함수들 ---
@@ -72,10 +71,8 @@ public class GameManager : MonoBehaviour
         {
             LoadGameState();
         }
-        // 파일이 없거나 로드 실패 시, 이미 StartGame에서 초기화된 gameState를 사용
         if (gameState == null || gameState.gameFloors == null || gameState.gameFloors.Count == 0)
         {
-            Debug.LogWarning("저장된 파일이 없거나 데이터가 비어있어 새로 초기화합니다.");
             InitializeNewGame();
         }
     }
@@ -87,7 +84,6 @@ public class GameManager : MonoBehaviour
             string json = File.ReadAllText(saveFilePath);
             gameState = JsonUtility.FromJson<GameState>(json);
 
-            // 로드했는데 층 데이터가 비어있으면 다시 채움 (안전장치)
             if (gameState.gameFloors == null || gameState.gameFloors.Count == 0)
             {
                 GameState initialState = GameDataInitializer.createInitialState();
@@ -96,6 +92,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
+    // ▼▼▼ [수정 2] 정답/오답 및 게임오버 처리 로직 ▼▼▼
     public void SubmitAnswer(string answer)
     {
         if (gameState == null) return;
@@ -104,41 +101,46 @@ public class GameManager : MonoBehaviour
         int currentFloorIdx = gameState.currentFloor - 1;
         if (currentFloorIdx < 0 || currentFloorIdx >= gameState.gameFloors.Count) return;
 
-        // 정답 체크 로직
         Floor floorData = gameState.gameFloors[currentFloorIdx];
+
         if (floorData.traps != null && floorData.traps.Count > 0)
         {
             Trap trap = floorData.traps[0];
+
+            // [정답 처리]
             if (answer.Trim() == trap.answer)
             {
-                Debug.Log("정답입니다!");
+                Debug.Log("정답입니다! 승리!");
 
-                // 클리어 목록에 추가
-                if (!gameState.clearedFloors.Contains(gameState.currentFloor))
-                {
-                    gameState.clearedFloors.Add(gameState.currentFloor);
-                }
-
-                // UI 갱신 요청
-                if (UIManager.Instance != null)
-                {
-                    UIManager.Instance.UpdateUI();
-                    UIManager.Instance.CloseAllPanels(); // 정답 맞히면 창 닫기
-                    UIManager.Instance.ShowInteractionMessage("정답입니다! 다음 층으로 이동하세요.");
-                }
-                SaveGame();
+                // 정답이면 바로 WinScene으로 이동
+                SceneManager.LoadScene("WinScene");
             }
+            // [오답 처리]
             else
             {
-                Debug.Log("오답입니다.");
-                if (UIManager.Instance != null)
+                gameState.attemptsLeft--; // 목숨 1개 차감
+                Debug.Log($"오답입니다. 남은 목숨: {gameState.attemptsLeft}");
+
+                // 목숨이 다 떨어졌는지 확인
+                if (gameState.attemptsLeft <= 0)
                 {
-                    UIManager.Instance.ShowInteractionMessage("오답입니다.");
+                    Debug.Log("모든 기회 소진. 게임 오버!");
+                    SceneManager.LoadScene("GameOverScene");
                 }
-                gameState.attemptsLeft--; // 기회 차감 등
+                else
+                {
+                    // 기회가 남았다면 UI 갱신해서 알려줌
+                    if (UIManager.Instance != null)
+                    {
+                        UIManager.Instance.UpdateUI(); // 남은 목숨 갱신
+                        UIManager.Instance.ShowInteractionMessage($"틀렸습니다! 남은 기회: {gameState.attemptsLeft}번");
+                    }
+                }
             }
+            SaveGame(); // 상태 저장 (목숨 깎인 것 등)
         }
     }
+    // ▲▲▲ [수정 완료] ▲▲▲
 
     public void ChangeFloor(int floorNumber)
     {
@@ -146,19 +148,14 @@ public class GameManager : MonoBehaviour
 
         int totalFloors = gameState.gameFloors.Count;
 
-        // 1. 없는 층 체크
         if (floorNumber < 1 || floorNumber > totalFloors)
         {
             if (UIManager.Instance != null)
-            {
                 UIManager.Instance.ShowInteractionMessage("존재하지 않는 층입니다.");
-            }
             return;
         }
 
-        // 2. 정상 이동
         gameState.currentFloor = floorNumber;
-        Debug.Log($"{floorNumber}층으로 이동했습니다.");
 
         if (UIManager.Instance != null)
         {
@@ -212,6 +209,24 @@ public class GameManager : MonoBehaviour
 
         SaveGame();
         SceneManager.LoadScene("GoodbyeScene");
+    }
+
+    public void ResetGameData()
+    {
+        if (File.Exists(saveFilePath)) File.Delete(saveFilePath);
+        if (File.Exists(memoFilePath)) File.Delete(memoFilePath);
+
+        InitializeNewGame();
+        SceneManager.LoadScene("GameScene");
+        Debug.Log("게임 리셋 완료!");
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F5))
+        {
+            ResetGameData();
+        }
     }
 
     [System.Serializable]
