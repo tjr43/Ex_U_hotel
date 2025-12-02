@@ -4,6 +4,7 @@ using TMPro;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.Controls;
+using System.Collections; // 코루틴 필수
 
 public class UIManager : MonoBehaviour
 {
@@ -42,6 +43,10 @@ public class UIManager : MonoBehaviour
     [Header("References")]
     public GameObject eventSystem;
 
+    // 타이머 코루틴 변수
+    private Coroutine messageCoroutine;
+    private bool isMoving = false; // 이동 중 중복 입력 방지
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -57,25 +62,13 @@ public class UIManager : MonoBehaviour
         if (GameManager.Instance != null && GameManager.Instance.gameState != null)
         {
             UpdateUI();
-            CheckAutoPopup();
         }
 
         CloseAllPanels();
 
         if (elevatorDisplay != null) elevatorDisplay.text = "";
         currentElevatorInput = "";
-    }
-
-    private void CheckAutoPopup()
-    {
-        int floor = GameManager.Instance.gameState.currentFloor;
-        bool isCleared = GameManager.Instance.gameState.IsFloorCleared(floor);
-        bool isLobbyOrRest = (floor == 1 || floor == 7);
-
-        if (!isLobbyOrRest && !isCleared)
-        {
-            ShowQuizPanel();
-        }
+        isMoving = false;
     }
 
     private void Update()
@@ -119,17 +112,14 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // ▼▼▼ [수정됨] 한글 "목숨" 적용 및 텍스트 포맷 변경 ▼▼▼
     public void UpdateUI()
     {
         if (GameManager.Instance == null || GameManager.Instance.gameState == null) return;
 
         GameState state = GameManager.Instance.gameState;
 
-        // 1. HUD 업데이트 (이름: OOO    목숨: 2)
         if (playerNameText != null)
         {
-            // \n을 없애고 한 줄로 표시 (Inspector에서 Width를 800 이상으로 늘려야 안 잘림)
             playerNameText.text = $"이름: <color=yellow>{state.currentPlayerId}</color>    목숨: <color=red>{state.attemptsLeft}</color>";
         }
 
@@ -138,7 +128,6 @@ public class UIManager : MonoBehaviour
             attemptsText.text = state.attemptsLeft.ToString();
         }
 
-        // 2. 퀴즈 패널 텍스트 업데이트
         if (quizRiddleText == null) return;
 
         int currentFloor = state.currentFloor;
@@ -173,7 +162,6 @@ public class UIManager : MonoBehaviour
         if (answerInput != null) answerInput.gameObject.SetActive(canSubmit);
         if (submitButton != null) submitButton.gameObject.SetActive(canSubmit);
     }
-    // ▲▲▲
 
     public void ShowQuizPanel()
     {
@@ -208,7 +196,6 @@ public class UIManager : MonoBehaviour
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
 
-            // ▼▼▼ [핵심 수정] 스크롤 초기화 ▼▼▼
             ScrollRect scrollRect = rulesPanel.GetComponentInChildren<ScrollRect>();
             if (scrollRect != null)
             {
@@ -217,8 +204,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // 스크롤 강제 초기화 코루틴
-    private System.Collections.IEnumerator ForceScrollToTop(ScrollRect scrollRect)
+    private IEnumerator ForceScrollToTop(ScrollRect scrollRect)
     {
         yield return new WaitForEndOfFrame();
         scrollRect.verticalNormalizedPosition = 1f;
@@ -268,51 +254,87 @@ public class UIManager : MonoBehaviour
         if (elevatorDisplay != null) elevatorDisplay.text = "";
     }
 
-    // ▼▼▼ [수정됨] 이동 제한 & 씬 이동 로직 ▼▼▼
+    // ▼▼▼ 이동 버튼 (코루틴 호출) ▼▼▼
     public void OnElevatorGo()
     {
-        if (GameManager.Instance == null) return;
+        if (GameManager.Instance == null || isMoving) return;
 
         if (int.TryParse(currentElevatorInput, out int newFloor))
         {
-            int totalFloors = GameManager.Instance.gameState.gameFloors.Count;
-            if (newFloor < 1 || newFloor > totalFloors)
-            {
-                ShowInteractionMessage("존재하지 않는 층입니다.");
-                OnElevatorClear();
-                return;
-            }
-
-            int currentFloor = GameManager.Instance.gameState.currentFloor;
-            bool isLobbyOrRest = (currentFloor == 1 || currentFloor == 7);
-            bool isCurrentCleared = GameManager.Instance.gameState.IsFloorCleared(currentFloor);
-
-            // 현재 층을 못 깼으면 이동 불가 (로비 제외)
-            if (!isLobbyOrRest && !isCurrentCleared)
-            {
-                ShowInteractionMessage($"현재 {currentFloor}층의 문제를 먼저 해결해야 합니다!");
-                OnElevatorClear();
-                return;
-            }
-
-            GameManager.Instance.ChangeFloor(newFloor);
-            CloseAllPanels();
-
-            // 씬 이동
-            if (newFloor == 1)
-            {
-                SceneManager.LoadScene("GameScene");
-            }
-            else
-            {
-                SceneManager.LoadScene("FloorScene");
-            }
+            StartCoroutine(ProcessFloorMoveRoutine(newFloor));
         }
         else
         {
             ShowInteractionMessage("올바른 층을 입력하세요.");
             OnElevatorClear();
         }
+    }
+
+    // ▼▼▼ [수정됨] 3초 대기 후 이동 + 문구 변경 ▼▼▼
+    private IEnumerator ProcessFloorMoveRoutine(int newFloor)
+    {
+        isMoving = true;
+
+        int totalFloors = GameManager.Instance.gameState.gameFloors.Count;
+
+        // 1. 없는 층 체크
+        if (newFloor < 1 || newFloor > totalFloors)
+        {
+            ShowInteractionMessage("존재하지 않는 층입니다.");
+            OnElevatorClear();
+            isMoving = false;
+            yield break;
+        }
+
+        // 2. 함정 층 (22층)
+        if (newFloor == 22)
+        {
+            GameManager.Instance.ChangeFloor(newFloor);
+            CloseAllPanels();
+
+            // 함정 메시지 출력
+            ShowInteractionMessage("22층은 함정입니다! 탈락!");
+
+            // 3초 대기 (읽을 시간 줌)
+            yield return new WaitForSeconds(3.0f);
+
+            SceneManager.LoadScene("GameOverScene");
+            yield break;
+        }
+
+        // 3. 이미 클리어한 층 체크 (재방문 금지)
+        bool isAlreadyCleared = GameManager.Instance.gameState.IsFloorCleared(newFloor);
+        bool isLobbyOrRest = (newFloor == 1 || newFloor == 7);
+
+        if (!isLobbyOrRest && isAlreadyCleared)
+        {
+            ShowInteractionMessage($"이미 클리어한 {newFloor}층에는 다시 갈 수 없습니다!");
+            OnElevatorClear();
+            isMoving = false;
+            yield break;
+        }
+
+        // 4. 정상 이동
+        GameManager.Instance.ChangeFloor(newFloor);
+        CloseAllPanels();
+
+        // [수정됨] 문구 변경: "도착했습니다" -> "이동합니다"
+        ShowInteractionMessage($"{newFloor}층으로 이동합니다.");
+
+        // 3초 대기 (이동하는 느낌)
+        yield return new WaitForSeconds(3.0f);
+
+        // 5. 씬 이동
+        if (newFloor == 1)
+        {
+            SceneManager.LoadScene("GameScene");
+        }
+        else
+        {
+            SceneManager.LoadScene("FloorScene");
+        }
+
+        isMoving = false;
     }
     // ▲▲▲
 
@@ -365,7 +387,16 @@ public class UIManager : MonoBehaviour
         {
             messageText.text = msg;
             messageText.gameObject.SetActive(true);
+
+            if (messageCoroutine != null) StopCoroutine(messageCoroutine);
+            messageCoroutine = StartCoroutine(HideMessageRoutine(3.0f));
         }
+    }
+
+    private IEnumerator HideMessageRoutine(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        HideInteractionMessage();
     }
 
     public void HideInteractionMessage()
@@ -373,17 +404,11 @@ public class UIManager : MonoBehaviour
         if (messageText != null) messageText.gameObject.SetActive(false);
     }
 
-    // ▼▼▼ [추가됨] 입력 중인지 확인하는 함수 (창 닫힘 방지용) ▼▼▼
     public bool IsTyping()
     {
-        // 1. 답 입력창이 켜져 있고 & 포커스 되어 있거나
         if (answerInput != null && answerInput.isFocused) return true;
-
-        // 2. 메모 입력창이 켜져 있고 & 포커스 되어 있다면
         if (memoInputField != null && memoInputField.isFocused) return true;
 
-        return false; // 둘 다 아니면 타자 치는 중 아님
+        return false;
     }
-
-    // ▲▲▲
 }

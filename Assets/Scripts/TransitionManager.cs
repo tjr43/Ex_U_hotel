@@ -25,16 +25,20 @@ public class TransitionManager : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        FindPlayerReferences(); // 씬 로드될 때 플레이어 찾기
+        FindPlayerReferences();
 
         string currentSceneName = scene.name;
-        if (currentSceneName == "GameScene" || currentSceneName == "StartScene")
+
+        // ▼▼▼ [수정됨] WinScene도 움직일 수 있는 씬 목록에 추가 ▼▼▼
+        if (currentSceneName == "GameScene" ||
+            currentSceneName == "StartScene" ||
+            currentSceneName == "winscene")  // <-- 여기 추가!
         {
-            SetUIMode(false);
+            SetUIMode(false); // false = 마우스 숨김, 움직임 허용
         }
         else
         {
-            SetUIMode(true);
+            SetUIMode(true);  // true = 마우스 보임, 움직임 차단
         }
     }
 
