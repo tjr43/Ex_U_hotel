@@ -3,17 +3,16 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 
 public class GameManager : MonoBehaviour
 {
-    // --- 1. 싱글톤 및 기본 변수 ---
     public static GameManager Instance { get; private set; }
-    public GameState gameState; // DataModels.cs에서 정의된 것을 사용
+    public GameState gameState;
 
     private string saveFilePath;
     private string memoFilePath;
 
-    // --- 2. 초기화 (Awake) ---
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -22,59 +21,30 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
-        DontDestroyOnLoad(gameObject); // StartScene부터 GameScene까지 유지
+        DontDestroyOnLoad(gameObject);
 
         saveFilePath = Path.Combine(Application.persistentDataPath, "gameState.json");
         memoFilePath = Path.Combine(Application.persistentDataPath, "memos.json");
     }
 
-    // --- 3. StartScene에서 호출될 함수 ---
     public void StartGame(string playerName)
     {
-        Debug.Log($"StartGame 호출됨. 플레이어 이름: {playerName}");
-
         InitializeNewGame();
-
-        if (gameState != null)
-        {
-            gameState.currentPlayerId = playerName;
-        }
-
+        if (gameState != null) gameState.currentPlayerId = playerName;
         SceneManager.LoadScene("GameScene");
     }
 
-    // 초기화 함수
     private void InitializeNewGame()
     {
-        Debug.Log("InitializeNewGame() 호출됨.");
-
-        // 30개 층 데이터 생성
         GameState initialState = GameDataInitializer.createInitialState();
-
-        // ▼▼▼ [수정 1] 목숨을 2개로 설정 ▼▼▼
-        gameState = new GameState(
-            1,
-            "Player",
-            initialState.gameFloors,
-            2                   // attemptsLeft: 2 (기회 2번)
-        );
-        // ▲▲▲
-
-        Debug.Log("새 게임 상태 생성 완료 (목숨 2개)");
+        gameState = new GameState(1, "Player", initialState.gameFloors, 2);
+        gameState.playerHistory = LoadMemos();
     }
-
-    // --- 4. GameScene에서 사용될 함수들 ---
 
     public void LoadGameOrCreateNew()
     {
-        if (File.Exists(saveFilePath))
-        {
-            LoadGameState();
-        }
-        if (gameState == null || gameState.gameFloors == null || gameState.gameFloors.Count == 0)
-        {
-            InitializeNewGame();
-        }
+        if (File.Exists(saveFilePath)) LoadGameState();
+        if (gameState == null || gameState.gameFloors == null || gameState.gameFloors.Count == 0) InitializeNewGame();
     }
 
     public void LoadGameState()
@@ -83,20 +53,19 @@ public class GameManager : MonoBehaviour
         {
             string json = File.ReadAllText(saveFilePath);
             gameState = JsonUtility.FromJson<GameState>(json);
-
             if (gameState.gameFloors == null || gameState.gameFloors.Count == 0)
             {
                 GameState initialState = GameDataInitializer.createInitialState();
                 gameState.gameFloors = initialState.gameFloors;
             }
+            if (gameState.playerHistory == null) gameState.playerHistory = LoadMemos();
         }
     }
 
-    // ▼▼▼ [수정 2] 정답/오답 및 게임오버 처리 로직 ▼▼▼
+    // ▼▼▼ [수정됨] 정답/탈락 시 화면 가리는 패널 닫기 ▼▼▼
     public void SubmitAnswer(string answer)
     {
         if (gameState == null) return;
-        Debug.Log("답변 제출: " + answer);
 
         int currentFloorIdx = gameState.currentFloor - 1;
         if (currentFloorIdx < 0 || currentFloorIdx >= gameState.gameFloors.Count) return;
@@ -110,53 +79,71 @@ public class GameManager : MonoBehaviour
             // [정답 처리]
             if (answer.Trim() == trap.answer)
             {
-                Debug.Log("정답입니다! 승리!");
+                // 1. 화면을 가리고 있는 퀴즈 패널부터 닫습니다! (핵심)
+                if (UIManager.Instance != null) UIManager.Instance.CloseAllPanels();
 
-                // 정답이면 바로 WinScene으로 이동
-                SceneManager.LoadScene("WinScene");
+                // 2. 그 다음 메시지를 띄우고 코루틴 시작
+                StartCoroutine(ProcessCorrectAnswerRoutine());
             }
             // [오답 처리]
             else
             {
-                gameState.attemptsLeft--; // 목숨 1개 차감
-                Debug.Log($"오답입니다. 남은 목숨: {gameState.attemptsLeft}");
+                gameState.attemptsLeft--;
 
-                // 목숨이 다 떨어졌는지 확인
+                // 목숨 소진 (탈락)
                 if (gameState.attemptsLeft <= 0)
                 {
-                    Debug.Log("모든 기회 소진. 게임 오버!");
-                    SceneManager.LoadScene("GameOverScene");
+                    // 1. 화면을 가리고 있는 퀴즈 패널 닫기 (핵심)
+                    if (UIManager.Instance != null) UIManager.Instance.CloseAllPanels();
+
+                    // 2. 탈락 메시지 띄우고 코루틴 시작
+                    StartCoroutine(ProcessGameOverRoutine());
                 }
                 else
                 {
-                    // 기회가 남았다면 UI 갱신해서 알려줌
+                    // 기회가 남았을 때는 패널을 닫지 않고 메시지만 띄움 (다시 풀어야 하니까)
                     if (UIManager.Instance != null)
                     {
-                        UIManager.Instance.UpdateUI(); // 남은 목숨 갱신
+                        UIManager.Instance.UpdateUI();
                         UIManager.Instance.ShowInteractionMessage($"틀렸습니다! 남은 기회: {gameState.attemptsLeft}번");
                     }
                 }
             }
-            SaveGame(); // 상태 저장 (목숨 깎인 것 등)
+            SaveGame();
         }
     }
-    // ▲▲▲ [수정 완료] ▲▲▲
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+    private IEnumerator ProcessCorrectAnswerRoutine()
+    {
+        if (UIManager.Instance != null) UIManager.Instance.ShowInteractionMessage("정답입니다");
+        yield return new WaitForSeconds(3.0f);
+        SceneManager.LoadScene("WinScene");
+    }
+
+    private IEnumerator ProcessGameOverRoutine()
+    {
+        if (UIManager.Instance != null)
+        {
+            UIManager.Instance.UpdateUI();
+            UIManager.Instance.ShowInteractionMessage("탈락입니다");
+        }
+        yield return new WaitForSeconds(3.0f);
+        SceneManager.LoadScene("WinScene");
+    }
 
     public void ChangeFloor(int floorNumber)
     {
         if (gameState == null) return;
-
         int totalFloors = gameState.gameFloors.Count;
 
         if (floorNumber < 1 || floorNumber > totalFloors)
         {
-            if (UIManager.Instance != null)
-                UIManager.Instance.ShowInteractionMessage("존재하지 않는 층입니다.");
+            if (UIManager.Instance != null) UIManager.Instance.ShowInteractionMessage("존재하지 않는 층입니다.");
             return;
         }
 
         gameState.currentFloor = floorNumber;
-
         if (UIManager.Instance != null)
         {
             UIManager.Instance.UpdateUI();
@@ -176,9 +163,13 @@ public class GameManager : MonoBehaviour
     {
         if (File.Exists(memoFilePath))
         {
-            string json = File.ReadAllText(memoFilePath);
-            MemosWrapper wrapper = JsonUtility.FromJson<MemosWrapper>(json) ?? new MemosWrapper();
-            return wrapper.memos;
+            try
+            {
+                string json = File.ReadAllText(memoFilePath);
+                MemosWrapper wrapper = JsonUtility.FromJson<MemosWrapper>(json);
+                if (wrapper != null && wrapper.memos != null) return wrapper.memos;
+            }
+            catch (Exception e) { Debug.LogWarning("메모 로드 실패: " + e.Message); }
         }
         return new List<PlayerRecord>();
     }
@@ -195,10 +186,7 @@ public class GameManager : MonoBehaviour
             timestamp = System.DateTime.Now.ToString()
         };
 
-        if (gameState.playerHistory == null)
-        {
-            gameState.playerHistory = new List<PlayerRecord>();
-        }
+        if (gameState.playerHistory == null) gameState.playerHistory = new List<PlayerRecord>();
         gameState.playerHistory.Add(record);
 
         List<PlayerRecord> allMemos = LoadMemos();
@@ -208,30 +196,26 @@ public class GameManager : MonoBehaviour
         File.WriteAllText(memoFilePath, json);
 
         SaveGame();
-        SceneManager.LoadScene("GoodbyeScene");
     }
 
     public void ResetGameData()
     {
         if (File.Exists(saveFilePath)) File.Delete(saveFilePath);
         if (File.Exists(memoFilePath)) File.Delete(memoFilePath);
-
         InitializeNewGame();
         SceneManager.LoadScene("GameScene");
-        Debug.Log("게임 리셋 완료!");
     }
 
     private void Update()
     {
-        if (Input.GetKeyDown(KeyCode.F5))
-        {
-            ResetGameData();
-        }
+        if (Input.GetKeyDown(KeyCode.F5)) ResetGameData();
     }
 
     [System.Serializable]
-    private class MemosWrapper
+    private class MemosWrapper { public List<PlayerRecord> memos = new List<PlayerRecord>(); }
+
+    private void OnApplicationQuit()
     {
-        public List<PlayerRecord> memos = new List<PlayerRecord>();
+        if (gameState != null) SaveGame();
     }
 }

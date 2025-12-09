@@ -2,6 +2,7 @@
 using StarterAssets;
 using UnityEngine.SceneManagement;
 using UnityEngine.InputSystem;
+using System.Collections;
 
 public class TransitionManager : MonoBehaviour
 {
@@ -25,25 +26,34 @@ public class TransitionManager : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        StartCoroutine(InitializeSceneRoutine(scene.name));
+    }
+
+    private IEnumerator InitializeSceneRoutine(string sceneName)
+    {
+        yield return null;
+
         FindPlayerReferences();
 
-        string currentSceneName = scene.name;
+        string lowerName = sceneName.ToLower();
 
-        // ▼▼▼ [수정됨] WinScene도 움직일 수 있는 씬 목록에 추가 ▼▼▼
-        if (currentSceneName == "GameScene" ||
-            currentSceneName == "StartScene" ||
-            currentSceneName == "winscene")  // <-- 여기 추가!
+        // ▼▼▼ [수정] "floor"를 목록에 추가했습니다! ▼▼▼
+        if (lowerName.Contains("game") ||
+            lowerName.Contains("start") ||
+            lowerName.Contains("win") ||
+            lowerName.Contains("floor")) // <-- 이제 FloorScene도 움직일 수 있습니다.
         {
-            SetUIMode(false); // false = 마우스 숨김, 움직임 허용
+            Debug.Log($"[TransitionManager] {sceneName}: 이동 모드로 시작");
+            SetUIMode(false); // 이동 허용 (마우스 숨김)
         }
         else
         {
-            SetUIMode(true);  // true = 마우스 보임, 움직임 차단
+            Debug.Log($"[TransitionManager] {sceneName}: UI 모드로 시작");
+            SetUIMode(true);  // 이동 차단 (마우스 보임)
         }
     }
 
-    // 플레이어 찾는 함수 분리 (못 찾으면 다시 찾기 위함)
-    private void FindPlayerReferences()
+    public void FindPlayerReferences()
     {
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
@@ -51,64 +61,47 @@ public class TransitionManager : MonoBehaviour
             movementScript = player.GetComponent<FirstPersonController>();
             inputScript = player.GetComponent<StarterAssetsInputs>();
             playerInput = player.GetComponent<PlayerInput>();
-            Debug.Log("✅ [TransitionManager] 플레이어 제어 스크립트를 연결했습니다.");
-        }
-        else
-        {
-            Debug.LogWarning("⚠️ [TransitionManager] 'Player' 태그를 가진 오브젝트를 찾지 못했습니다.");
         }
     }
 
     public void SetUIMode(bool showUI)
     {
-        // 안전장치: 만약 플레이어 연결이 끊겨있다면 다시 찾는다.
-        if (playerInput == null || inputScript == null)
-        {
-            FindPlayerReferences();
-        }
+        if (playerInput == null) FindPlayerReferences();
 
-        // 1. 입력 시스템 차단
+        // 1. 입력 시스템
         if (playerInput != null)
         {
-            // UI가 켜지면 아예 입력을 꺼버림 (화면 회전 방지 핵심)
             playerInput.enabled = !showUI;
         }
 
-        // 2. 움직임 스크립트 제어
+        // 2. 이동 스크립트
         if (movementScript != null)
         {
             movementScript.enabled = !showUI;
         }
 
-        // 3. 입력 값 초기화
+        // 3. 마우스 커서 및 시선 처리
         if (inputScript != null)
         {
-            if (showUI)
+            if (showUI) // UI 모드
             {
-                inputScript.move = Vector2.zero;
-                inputScript.look = Vector2.zero;
-                inputScript.jump = false;
-                inputScript.sprint = false;
-                inputScript.cursorInputForLook = false; // 시선 처리 끄기
                 inputScript.cursorLocked = false;
+                inputScript.cursorInputForLook = false;
+                Cursor.lockState = CursorLockMode.None;
+                Cursor.visible = true;
             }
-            else
+            else // 게임 모드 (이동)
             {
-                inputScript.cursorInputForLook = true;
                 inputScript.cursorLocked = true;
+                inputScript.cursorInputForLook = true;
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
             }
-        }
-
-        // 4. 마우스 커서 설정
-        if (showUI)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
         }
         else
         {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+            Cursor.lockState = showUI ? CursorLockMode.None : CursorLockMode.Locked;
+            Cursor.visible = showUI;
         }
     }
 }
