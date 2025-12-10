@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 using TMPro;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.Controls; // KeyControl 사용을 위해 필수
+using UnityEngine.InputSystem.Controls;
 using System.Collections;
 
 public class UIManager : MonoBehaviour
@@ -18,6 +18,10 @@ public class UIManager : MonoBehaviour
     [Header("UI Text Components (Quiz Panel)")]
     public TMP_Text quizRiddleText;
     public TMP_Text quizDescriptionText;
+
+    // ▼▼▼ [추가] 타이머 표시용 텍스트 ▼▼▼
+    public TMP_Text timerText;
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
 
     [Header("Input Fields")]
     public TMP_InputField answerInput;
@@ -37,9 +41,9 @@ public class UIManager : MonoBehaviour
     public GameObject rulesPanel;
 
     [Header("Memo Display")]
-    public TMP_Text memoHistoryText; // 아까 연결하신 텍스트 상자
-    public RectTransform memoListContent; // (사용 안 함)
-    public GameObject memoItemPrefab;     // (사용 안 함)
+    public TMP_Text memoHistoryText;
+    public RectTransform memoListContent;
+    public GameObject memoItemPrefab;
 
     [Header("References")]
     public GameObject eventSystem;
@@ -47,20 +51,22 @@ public class UIManager : MonoBehaviour
     private Coroutine messageCoroutine;
     private bool isMoving = false;
 
-    private void Awake()
-    {
-        if (Instance != null && Instance != this)
-        {
+    // ▼▼▼ [추가] 타이머 관련 변수 ▼▼▼
+    private float currentQuizTime = 0f;
+    private bool isTimerRunning = false;
+    private const float QUIZ_TIME_LIMIT = 30.0f; // 30초 제한
+    // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+    private void Awake() {
+        if (Instance != null && Instance != this) {
             Destroy(gameObject);
             return;
         }
         Instance = this;
     }
 
-    private void Start()
-    {
-        if (GameManager.Instance != null && GameManager.Instance.gameState != null)
-        {
+    private void Start() {
+        if (GameManager.Instance != null && GameManager.Instance.gameState != null) {
             UpdateUI();
         }
         CloseAllPanels();
@@ -68,15 +74,12 @@ public class UIManager : MonoBehaviour
         if (elevatorDisplay != null) elevatorDisplay.text = "";
     }
 
-    private void Update()
-    {
-        // ▼▼▼ [복구됨] 엘리베이터 숫자 입력 로직 ▼▼▼
-        if (elevatorPanel != null && elevatorPanel.activeSelf)
-        {
+    private void Update() {
+        // 1. 엘리베이터 입력 로직
+        if (elevatorPanel != null && elevatorPanel.activeSelf) {
             var kb = Keyboard.current;
             if (kb == null) return;
 
-            // 0~9 숫자 키 입력 감지 (복구 완료)
             CheckNumberInput(kb.digit0Key, kb.numpad0Key, "0");
             CheckNumberInput(kb.digit1Key, kb.numpad1Key, "1");
             CheckNumberInput(kb.digit2Key, kb.numpad2Key, "2");
@@ -92,81 +95,86 @@ public class UIManager : MonoBehaviour
             if (kb.backspaceKey.wasPressedThisFrame) OnElevatorClear();
             if (kb.escapeKey.wasPressedThisFrame) CloseAllPanels();
         }
+
+        // ▼▼▼ [추가] 2. 퀴즈 타이머 로직 ▼▼▼
+        if (quizPanel != null && quizPanel.activeSelf && isTimerRunning) {
+            currentQuizTime -= Time.deltaTime;
+
+            // UI 업데이트 (소수점 없이 정수만 표시)
+            if (timerText != null) {
+                timerText.text = Mathf.CeilToInt(currentQuizTime).ToString();
+
+                // 5초 이하일 때 빨간색으로 경고 (선택사항)
+                if (currentQuizTime <= 5f) timerText.color = Color.red;
+                else timerText.color = Color.white;
+            }
+
+            // 시간 초과 체크
+            if (currentQuizTime <= 0) {
+                currentQuizTime = 0;
+                isTimerRunning = false;
+
+                // GameManager에게 시간 초과 알림
+                if (GameManager.Instance != null) {
+                    GameManager.Instance.OnQuizTimeout();
+                }
+            }
+        }
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
     }
 
-    // ▼▼▼ [복구됨] 숫자 입력 헬퍼 함수 ▼▼▼
-    private void CheckNumberInput(KeyControl mainKey, KeyControl numpadKey, string value)
-    {
-        if (mainKey.wasPressedThisFrame || numpadKey.wasPressedThisFrame)
-        {
+    private void CheckNumberInput(KeyControl mainKey, KeyControl numpadKey, string value) {
+        if (mainKey.wasPressedThisFrame || numpadKey.wasPressedThisFrame) {
             OnElevatorNumpadPress(value);
         }
     }
 
-    // ▼▼▼ 메모장 표시 함수 (아까 수정한 부분 유지) ▼▼▼
-    private void UpdateMemoList()
-    {
+    private void UpdateMemoList() {
         if (GameManager.Instance == null || GameManager.Instance.gameState == null) return;
         var history = GameManager.Instance.gameState.playerHistory;
 
-        if (memoHistoryText != null)
-        {
+        if (memoHistoryText != null) {
             string finalString = "";
-            if (history != null && history.Count > 0)
-            {
-                foreach (var record in history)
-                {
+            if (history != null && history.Count > 0) {
+                foreach (var record in history) {
                     finalString += $"[{record.playerId}] {record.memo}\n\n";
                 }
-            }
-            else
-            {
+            } else {
                 finalString = "아직 작성된 메모가 없습니다.";
             }
             memoHistoryText.text = finalString;
         }
     }
 
-    public void ShowMemoPanel()
-    {
-        if (memoPanel != null)
-        {
+    public void ShowMemoPanel() {
+        if (memoPanel != null) {
             memoPanel.SetActive(true);
             UpdateMemoList();
             SetGameMode(true);
         }
     }
 
-    public void UpdateUI()
-    {
+    public void UpdateUI() {
         if (GameManager.Instance == null || GameManager.Instance.gameState == null) return;
         GameState state = GameManager.Instance.gameState;
 
         if (playerNameText != null) playerNameText.text = $"이름: {state.currentPlayerId} | 목숨: {state.attemptsLeft}";
         if (attemptsText != null) attemptsText.text = state.attemptsLeft.ToString();
 
-        if (quizRiddleText != null)
-        {
+        if (quizRiddleText != null) {
             int currentFloor = state.currentFloor;
             bool isCleared = state.IsFloorCleared(currentFloor);
 
-            if (currentFloor == 1 || currentFloor == 7)
-            {
+            if (currentFloor == 1 || currentFloor == 7) {
                 if (quizDescriptionText != null) quizDescriptionText.text = currentFloor == 1 ? "1층 로비" : "7층 휴식 공간";
                 quizRiddleText.text = "안전한 구역입니다.";
-            }
-            else if (isCleared)
-            {
+            } else if (isCleared) {
                 if (quizDescriptionText != null) quizDescriptionText.text = $"{currentFloor}층 (클리어)";
                 quizRiddleText.text = "이미 클리어했습니다.";
-            }
-            else
-            {
-                if (state.gameFloors != null && currentFloor - 1 < state.gameFloors.Count)
-                {
+            } else {
+                if (state.gameFloors != null && currentFloor - 1 < state.gameFloors.Count) {
                     var floor = state.gameFloors[currentFloor - 1];
-                    if (floor.traps.Count > 0)
-                    {
+                    if (floor.traps.Count > 0) {
                         if (quizDescriptionText != null) quizDescriptionText.text = $"{currentFloor}층 문제";
                         quizRiddleText.text = floor.traps[0].riddle;
                     }
@@ -175,96 +183,99 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    public void ShowQuizPanel() { if (quizPanel != null) { quizPanel.SetActive(true); UpdateUI(); SetGameMode(true); } }
+    public void ShowQuizPanel() {
+        if (quizPanel != null) {
+            quizPanel.SetActive(true);
+            UpdateUI();
+            SetGameMode(true);
+
+            // ▼▼▼ [추가] 퀴즈 패널이 열릴 때 타이머 시작 ▼▼▼
+            currentQuizTime = QUIZ_TIME_LIMIT;
+            isTimerRunning = true;
+            if (timerText != null) {
+                timerText.gameObject.SetActive(true);
+                timerText.text = "30";
+            }
+            // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+        }
+    }
+
     public void ShowRulePanel() { if (rulesPanel != null) { rulesPanel.SetActive(true); SetGameMode(true); } }
 
-    public void ShowElevatorPanel()
-    {
-        if (elevatorPanel != null)
-        {
+    public void ShowElevatorPanel() {
+        if (elevatorPanel != null) {
             elevatorPanel.SetActive(true);
             SetGameMode(true);
-            // 열릴 때 입력값 초기화
             currentElevatorInput = "";
             if (elevatorDisplay != null) elevatorDisplay.text = "";
         }
     }
 
-    public void CloseAllPanels()
-    {
+    public void CloseAllPanels() {
         if (memoPanel != null) memoPanel.SetActive(false);
         if (rulesPanel != null) rulesPanel.SetActive(false);
         if (elevatorPanel != null) elevatorPanel.SetActive(false);
         if (quizPanel != null) quizPanel.SetActive(false);
+
+        // ▼▼▼ [추가] 패널 닫을 때 타이머도 끄기 ▼▼▼
+        isTimerRunning = false;
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
         SetGameMode(false);
     }
 
-    private void SetGameMode(bool isUI)
-    {
+    private void SetGameMode(bool isUI) {
         if (TransitionManager.Instance != null) TransitionManager.Instance.SetUIMode(isUI);
         if (eventSystem != null) eventSystem.SetActive(isUI);
     }
 
     public void OnSubmitAnswerButton() { if (answerInput != null) GameManager.Instance.SubmitAnswer(answerInput.text); }
 
-    // ▼▼▼ 엘리베이터 입력 처리 함수들 ▼▼▼
-    public void OnElevatorNumpadPress(string digit)
-    {
-        if (currentElevatorInput.Length < 2) // 최대 2자리까지만 입력
-        {
+    public void OnElevatorNumpadPress(string digit) {
+        if (currentElevatorInput.Length < 2) {
             currentElevatorInput += digit;
             if (elevatorDisplay != null) elevatorDisplay.text = currentElevatorInput;
         }
     }
 
-    public void OnElevatorClear()
-    {
+    public void OnElevatorClear() {
         currentElevatorInput = "";
         if (elevatorDisplay != null) elevatorDisplay.text = "";
     }
 
-    public void OnElevatorGo()
-    {
+    public void OnElevatorGo() {
         if (GameManager.Instance == null || isMoving) return;
-        if (int.TryParse(currentElevatorInput, out int newFloor))
-        {
+        if (int.TryParse(currentElevatorInput, out int newFloor)) {
             StartCoroutine(ProcessFloorMoveRoutine(newFloor));
-        }
-        else
-        {
+        } else {
             ShowInteractionMessage("층을 입력하세요.");
         }
     }
 
-    private IEnumerator ProcessFloorMoveRoutine(int newFloor)
-    {
+    private IEnumerator ProcessFloorMoveRoutine(int newFloor) {
         isMoving = true;
         int totalFloors = GameManager.Instance.gameState.gameFloors.Count;
 
-        if (newFloor < 1 || newFloor > totalFloors)
-        {
+        if (newFloor < 1 || newFloor > totalFloors) {
             ShowInteractionMessage("존재하지 않는 층입니다.");
             OnElevatorClear();
             isMoving = false;
             yield break;
         }
 
-        // 22층 함정
-        if (newFloor == 22)
-        {
+        if (newFloor == 22) {
             GameManager.Instance.ChangeFloor(newFloor);
             CloseAllPanels();
             ShowInteractionMessage("22층은 함정입니다! 탈락!");
             yield return new WaitForSeconds(3.0f);
-            SceneManager.LoadScene("GameOverScene");
+            SceneManager.LoadScene("WinScene"); // 여기도 WinScene으로 변경됨
             yield break;
         }
 
         bool isAlreadyCleared = GameManager.Instance.gameState.IsFloorCleared(newFloor);
         bool isLobbyOrRest = (newFloor == 1 || newFloor == 7);
 
-        if (!isLobbyOrRest && isAlreadyCleared)
-        {
+        if (!isLobbyOrRest && isAlreadyCleared) {
             ShowInteractionMessage($"{newFloor}층은 이미 클리어했습니다!");
             OnElevatorClear();
             isMoving = false;
@@ -282,10 +293,8 @@ public class UIManager : MonoBehaviour
         isMoving = false;
     }
 
-    public void ShowInteractionMessage(string msg)
-    {
-        if (messageText != null)
-        {
+    public void ShowInteractionMessage(string msg) {
+        if (messageText != null) {
             messageText.text = msg;
             messageText.gameObject.SetActive(true);
             if (messageCoroutine != null) StopCoroutine(messageCoroutine);

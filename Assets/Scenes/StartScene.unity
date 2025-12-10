@@ -626,8 +626,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: 
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: db70237720a396a4fae56937d35bd02c, type: 2}
+  m_sharedMaterial: {fileID: 4712782645945723123, guid: db70237720a396a4fae56937d35bd02c, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -769,8 +769,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u200B"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9baf7845592fb284b960c773af26405d, type: 2}
-  m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: db70237720a396a4fae56937d35bd02c, type: 2}
+  m_sharedMaterial: {fileID: 4712782645945723123, guid: db70237720a396a4fae56937d35bd02c, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -1700,7 +1700,7 @@ MonoBehaviour:
   m_CaretWidth: 1
   m_ReadOnly: 0
   m_RichText: 1
-  m_GlobalFontAsset: {fileID: 11400000, guid: 9baf7845592fb284b960c773af26405d, type: 2}
+  m_GlobalFontAsset: {fileID: 11400000, guid: db70237720a396a4fae56937d35bd02c, type: 2}
   m_OnFocusSelectAll: 1
   m_ResetOnDeActivation: 1
   m_KeepTextSelectionVisible: 0
@@ -2074,8 +2074,8 @@ MonoBehaviour:
       m_Calls: []
   m_text: Enter text...
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9baf7845592fb284b960c773af26405d, type: 2}
-  m_sharedMaterial: {fileID: 5135756994236720951, guid: 9baf7845592fb284b960c773af26405d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: db70237720a396a4fae56937d35bd02c, type: 2}
+  m_sharedMaterial: {fileID: 4712782645945723123, guid: db70237720a396a4fae56937d35bd02c, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
   m_fontMaterials: []
@@ -2323,9 +2323,9 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: what your name
+  m_text: "\uC774\uB984\uC774 \uBB54\uAC00\uC694?"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 9baf7845592fb284b960c773af26405d, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: db70237720a396a4fae56937d35bd02c, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_fontSharedMaterials: []
   m_fontMaterial: {fileID: 0}
